@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    
+    .terminal {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      background-color: #000;
+      border: 1px solid #0f0;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+    }
+    
+    .terminal-header {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .terminal-content {
+      margin-bottom: 20px;
+    }
+    
+    .command-line {
+      display: flex;
+      margin-bottom: 10px;
+    }
+    
+    .prompt {
+      margin-right: 10px;
+      color: #0f0;
+      font-weight: bold;
+    }
+    
+    .input-container {
+      flex-grow: 1;
+      display: flex;
+    }
+    
+    #command-input {
+      flex-grow: 1;
+      background-color: transparent;
+      border: none;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 16px;
+      caret-color: #0f0;
+      outline: none;
+    }
+    
+    .response {
+      margin-top: 5px;
+      margin-bottom: 15px;
+      color: #ddd;
+      white-space: pre-wrap;
+    }
+    
+    .help-command {
+      color: #0f0;
+      font-weight: bold;
+    }
+    
+    .error {
+      color: #f00;
+    }
+    
+    .blink {
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    
+    .project {
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 1px dashed #0f0;
+      border-radius: 3px;
+    }
+    
+    .skill-category {
+      margin-bottom: 10px;
+    }
+    
+    .skill-bar {
+      display: inline-block;
+      height: 10px;
+      background-color: #0f0;
+    }
+    
+    .contact-item {
+      display: flex;
+      margin-bottom: 5px;
+    }
+    
+    .contact-item-icon {
+      width: 20px;
+      margin-right: 10px;
+      text-align: center;
+    }
+    
+    .ascii-art {
+      line-height: 1.2;
+      white-space: pre;
+      color: #0f0;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="ascii-art">
+        </div>
+        <p>Portfolio</p>
+        <p>Yozuv 'help' buyrug'ini kiritib, mavjud buyruqlar ro'yxatini ko'rishingiz mumkin</p>
+      </div>
+      
+      <div class="terminal-content">
+        <div v-for="(item, index) in history" :key="index">
+          <div class="command-line" v-if="item.command">
+            <div class="prompt">{{ prompt }}</div>
+            <div>{{ item.command }}</div>
+          </div>
+          <div class="response" v-if="item.response" v-html="item.response"></div>
+        </div>
+      </div>
+      
+      <div class="command-line">
+        <div class="prompt">{{ prompt }}</div>
+        <div class="input-container">
+          <input 
+            id="command-input" 
+            v-model="currentCommand" 
+            @keyup.enter="executeCommand" 
+            ref="commandInput"
+            autofocus
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted, nextTick } = Vue;
+    
+    createApp({
+      setup() {
+        const prompt = ref('portfolio@user:~$');
+        const currentCommand = ref('');
+        const history = ref([
+          { 
+            response: `Xush kelibsiz mening Terminal Portfolio saytimga!\nBoshlash uchun 'help' buyrug'ini kiriting.`
+          }
+        ]);
+        const commandInput = ref(null);
+        
+        // Portfolio ma'lumotlari
+        const about = ` 
+          Computer science va CyberSecurity bo'yich izlanishlar olib boradigan oddiy qishloq bolasi.
+        `;
+
+        const experience = `
+<div class="project">
+  <strong>MilliSecurty va Mohirdev</strong> (kunga qadar)
+  CyberSecurity
+</div>
+
+<div class="project">
+  <strong>Al-Focus</strong> 
+  Dasturchi va CyberSecurity
+</div>
+
+<div class="project">
+  <strong>CrudGroup</strong> 
+  Dasturchi va CyberSecurity
+</div>
+  <div class="project">
+  <strong>RTM</strong> 
+  Dasturchi
+</div>
+`;
+
+        const projects = `
+<div class="project">
+  <strong>Texi projects</strong>
+</div>
+
+<div class="project">
+  <strong>PCC CRM</strong>
+  <p>Korporativ mijozlar uchun mo'ljallangan vazifalarni boshqarish tizimi.
+  Vazifalarni yaratish, tahrirlash, vazifalar bo'yicha hisobotlar olish imkoniyatlariga ega.</p>
+  <p>Texnologiyalar: React, Redux, Firebase</p>
+</div>
+
+<div class="project">
+  <strong>CyberEngima</strong> (pet project)
+</div>
+
+<div class="project">
+  <strong>WhiteBox academy</strong> (pet project)
+</div>
+`;
+
+        const skills = `
+<div class="skill-category">
+  <strong>barchasi:</strong>
+  <p>c/python/PHP/laravel/yii</p>
+  <p>mysql/pgsql/mongodb</p>
+  <p></p>
+  <p>React <span class="skill-bar" style="width: 80px;"></span> 80%</p>
+  <p>Angular <span class="skill-bar" style="width: 70px;"></span> 70%</p>
+</div>
+`;
+
+        const education = `
+<div class="project">
+  <strong>Hechqayerda</strong>
+</div>
+
+`;
+
+        const contact = `
+<div class="contact-item">
+  <div class="contact-item-icon">📧</div>
+  <div>email@example.com</div>
+</div>
+<div class="contact-item">
+  <div class="contact-item-icon">📱</div>
+  <div>+998 90 123 45 67</div>
+</div>
+<div class="contact-item">
+  <div class="contact-item-icon">🔗</div>
+  <div>linkedin.com/in/yourname</div>
+</div>
+<div class="contact-item">
+  <div class="contact-item-icon">🌐</div>
+  <div>github.com/yourusername</div>
+</div>
+<div class="contact-item">
+  <div class="contact-item-icon">📍</div>
+  <div>Tashkent, Uzbekistan</div>
+</div>
+`;
+
+        const helpText = `
+<span class="help-command">about</span> - Men haqimda ma'lumot
+<span class="help-command">experience</span> - Ish tajribasi
+<span class="help-command">projects</span> - Loyihalar
+<span class="help-command">skills</span> - Ko'nikmalar
+<span class="help-command">education</span> - Ta'lim
+<span class="help-command">contact</span> - Aloqa ma'lumotlari
+<span class="help-command">help</span> - Buyruqlar ro'yxati
+<span class="help-command">clear</span> - Terminalni tozalash
+`;
+
+        onMounted(() => {
+          focusInput();
+          window.addEventListener('click', focusInput);
+          
+          return () => {
+            window.removeEventListener('click', focusInput);
+          };
+        });
+        
+        const executeCommand = () => {
+          const command = currentCommand.value.trim().toLowerCase();
+          let response = '';
+          
+          if (command) {
+            history.value.push({ command });
+            
+            // Buyruqlarni boshqarish
+            switch (command) {
+              case 'about':
+                response = about;
+                break;
+              case 'experience':
+                response = experience;
+                break;
+              case 'projects':
+                response = projects;
+                break;
+              case 'skills':
+                response = skills;
+                break;
+              case 'education':
+                response = education;
+                break;
+              case 'contact':
+                response = contact;
+                break;
+              case 'help':
+                response = helpText;
+                break;
+              case 'clear':
+                history.value = [];
+                currentCommand.value = '';
+                return;
+              default:
+                response = `<span class="error">Xato: '${command}' buyrug'i topilmadi. Mavjud buyruqlar uchun 'help' kiriting.</span>`;
+            }
+            
+            history.value.push({ response });
+            currentCommand.value = '';
+            
+            nextTick(() => {
+              const terminal = document.querySelector('.terminal');
+              terminal.scrollTop = terminal.scrollHeight;
+            });
+          }
+        };
+        
+        const focusInput = () => {
+          if (commandInput.value) {
+            commandInput.value.focus();
+          }
+        };
+        
+        return {
+          prompt,
+          currentCommand,
+          history,
+          commandInput,
+          executeCommand
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
