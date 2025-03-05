@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <title>O'zbekiston Viloyatlari Xaritasi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="info"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Uzbekistan regions data with coordinates and population
+        const regions = [
+            {
+                name: "Toshkent shahri",
+                population: 2587100,
+                coordinates: [41.2995, 69.2401]
+            },
+            {
+                name: "Toshkent viloyati",
+                population: 2909600,
+                coordinates: [41.0282, 68.5438]
+            },
+            {
+                name: "Samarqand viloyati",
+                population: 3820100,
+                coordinates: [39.6477, 66.9750]
+            },
+            {
+                name: "Farg'ona viloyati",
+                population: 3661900,
+                coordinates: [40.7833, 71.1667]
+            },
+            {
+                name: "Qashqadaryo viloyati",
+                population: 2942400,
+                coordinates: [38.8656, 65.7958]
+            },
+            {
+                name: "Xorazm viloyati",
+                population: 1830300,
+                coordinates: [41.5347, 60.6358]
+            },
+            {
+                name: "Andijon viloyati",
+                population: 3088500,
+                coordinates: [40.7833, 72.3333]
+            },
+            {
+                name: "Namangan viloyati",
+                population: 2753600,
+                coordinates: [41.0167, 71.6667]
+            },
+            {
+                name: "Sirdaryo viloyati",
+                population: 852600,
+                coordinates: [40.8000, 68.6667]
+            },
+            {
+                name: "Jizzax viloyati",
+                population: 1279900,
+                coordinates: [40.1167, 67.8667]
+            },
+            {
+                name: "Surxondaryo viloyati",
+                population: 2560700,
+                coordinates: [37.2167, 67.2833]
+            },
+            {
+                name: "Buxoro viloyati",
+                population: 1888600,
+                coordinates: [39.7667, 64.4333]
+            },
+            {
+                name: "Navoiy viloyati",
+                population: 895000,
+                coordinates: [40.1000, 65.3500]
+            },
+            {
+                name: "Qoraqalpog'iston Respublikasi",
+                population: 1888600,
+                coordinates: [43.0000, 59.0000]
+            }
+        ];
+
+        // Initialize the map
+        const map = L.map('map').setView([41.3775, 64.5853], 6);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Color function based on population
+        function getColor(population) {
+            return population > 3500000 ? '#800026' :
+                   population > 3000000 ? '#BD0026' :
+                   population > 2500000 ? '#E31A1C' :
+                   population > 2000000 ? '#FC4E2A' :
+                   population > 1500000 ? '#FD8D3C' :
+                   population > 1000000 ? '#FEB24C' :
+                   population > 500000  ? '#FED976' :
+                                          '#FFEDA0';
+        }
+
+        // Add markers for each region
+        regions.forEach(region => {
+            const circle = L.circleMarker(region.coordinates, {
+                radius: Math.sqrt(region.population / 50000), // Adjusted for visibility
+                fillColor: getColor(region.population),
+                color: "#000",
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+
+            // Popup with region details
+            circle.bindPopup(`
+                <b>${region.name}</b><br>
+                Aholi soni: ${region.population.toLocaleString()} kishi
+            `);
+        });
+
+        // Info control
+        const info = document.getElementById('info');
+        info.innerHTML = '<h3>O\'zbekiston Viloyatlari</h3>Xaritadagi doiralarning o\'lchami va rangi aholi soniga bog\'liq';
+    </script>
+</body>
+</html>
