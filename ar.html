@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fizika AR Ilovasi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
+        nav button {
+            background-color: #34495e;
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            margin: 0 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        nav button.active {
+            background-color: #1abc9c;
+        }
+        
+        main {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .ar-setup {
+            text-align: center;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            width: 80%;
+            max-width: 600px;
+        }
+        
+        .start-ar-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .start-ar-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .experiment-container {
+            width: 90%;
+            max-width: 800px;
+            min-height: 500px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            padding: 1rem;
+        }
+        
+        .experiment {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .controls {
+            width: 100%;
+            padding: 1rem;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .control-group {
+            margin-bottom: 1rem;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .slider-container input {
+            flex: 1;
+            margin-right: 1rem;
+        }
+        
+        .simulation-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+            margin-top: 1rem;
+        }
+        
+        .simulation-btn:hover {
+            background-color: #27ae60;
+        }
+        
+        .ar-scene {
+            width: 100%;
+            height: 400px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .metrics {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 1rem;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            width: 30%;
+            min-width: 150px;
+            margin: 0.5rem;
+        }
+        
+        .metric h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+        
+        #mechanics, #electromagnetism, #optics {
+            display: none;
+        }
+        
+        #mechanics.active, #electromagnetism.active, #optics.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Fizika AR Ilovasi</h1>
+        <nav>
+            <button id="mechanicsBtn" class="active">Mexanika</button>
+            <button id="electromagnetismBtn">Elektromagnetizm</button>
+            <button id="opticsBtn">Optika</button>
+        </nav>
+    </header>
+    
+    <main>
+        <div class="ar-setup" id="arSetup">
+            <h2>AR Tajribalarini Boshlash</h2>
+            <p>AR texnologiyasidan foydalanib, fizika hodisalarini 3D ko'rinishda o'rganing.</p>
+            <button id="startArBtn" class="start-ar-btn">Boshlash</button>
+        </div>
+        
+        <div class="experiment-container" id="experimentContainer">
+            <!-- Mechanics Experiment -->
+            <div id="mechanics" class="experiment active">
+                <h2>Mexanika Tajribasi</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Gravitatsiya (m/s²)</label>
+                        <div class="slider-container">
+                            <input type="range" min="0" max="20" step="0.1" value="9.8" id="gravitySlider">
+                            <span id="gravityValue">9.8 m/s²</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Jismning massasi (kg)</label>
+                        <div class="slider-container">
+                            <input type="range" min="0.1" max="10" step="0.1" value="1.0" id="massSlider">
+                            <span id="massValue">1.0 kg</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Boshlang'ich tezlik (m/s)</label>
+                        <div class="slider-container">
+                            <input type="range" min="0" max="20" step="0.1" value="5.0" id="velocitySlider">
+                            <span id="velocityValue">5.0 m/s</span>
+                        </div>
+                    </div>
+                    
+                    <button id="startMechanicsBtn" class="simulation-btn">Tajribani Boshlash</button>
+                </div>
+                
+                <div class="ar-scene" id="mechanicsScene"></div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <h3>Joriy Tezlik:</h3>
+                        <p id="currentVelocity">0.00 m/s</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Kinetik Energiya:</h3>
+                        <p id="kineticEnergy">0.00 J</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Potentsial Energiya:</h3>
+                        <p id="potentialEnergy">0.00 J</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Electromagnetism Experiment -->
+            <div id="electromagnetism" class="experiment">
+                <h2>Elektromagnetizm Tajribasi</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Tok kuchi (A)</label>
+                        <div class="slider-container">
+                            <input type="range" min="0" max="10" step="0.1" value="1.0" id="currentSlider">
+                            <span id="currentValue">1.0 A</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Magnit maydon kuchi (T)</label>
+                        <div class="slider-container">
+                            <input type="range" min="0" max="2" step="0.01" value="0.5" id="magneticFieldSlider">
+                            <span id="magneticFieldValue">0.5 T</span>
+                        </div>
+                    </div>
+                    
+                    <button id="visualizeFieldBtn" class="simulation-btn">Maydonni Ko'rsatish</button>
+                </div>
+                
+                <div class="ar-scene" id="emScene"></div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <h3>Elektromagnit kuch:</h3>
+                        <p id="emForce">0.25 N</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Magnit oqim:</h3>
+                        <p id="magneticFlux">0.13 Wb</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Optics Experiment -->
+            <div id="optics" class="experiment">
+                <h2>Optika Tajribasi</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Linza fokus masofasi (cm)</label>
+                        <div class="slider-container">
+                            <input type="range" min="1" max="50" step="1" value="10" id="focalLengthSlider">
+                            <span id="focalLengthValue">10 cm</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Obekt masofasi (cm)</label>
+                        <div class="slider-container">
+                            <input type="range" min="5" max="100" step="1" value="20" id="objectDistanceSlider">
+                            <span id="objectDistanceValue">20 cm</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Ob'ekt balandligi (cm)</label>
+                        <div class="slider-container">
+                            <input type="range" min="1" max="20" step="1" value="5" id="objectHeightSlider">
+                            <span id="objectHeightValue">5 cm</span>
+                        </div>
+                    </div>
+                    
+                    <button id="calculateImageBtn" class="simulation-btn">Tasvir Hosil Qilish</button>
+                </div>
+                
+                <div class="ar-scene" id="opticsScene"></div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <h3>Tasvir masofasi:</h3>
+                        <p id="imageDistance">20.00 cm</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Tasvir balandligi:</h3>
+                        <p id="imageHeight">5.00 cm</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Kattalashtirish:</h3>
+                        <p id="magnification">1.00x</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Main app functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching
+            const mechanicsBtn = document.getElementById('mechanicsBtn');
+            const electromagnetismBtn = document.getElementById('electromagnetismBtn');
+            const opticsBtn = document.getElementById('opticsBtn');
+            
+            const mechanics = document.getElementById('mechanics');
+            const electromagnetism = document.getElementById('electromagnetism');
+            const optics = document.getElementById('optics');
+            
+            mechanicsBtn.addEventListener('click', function() {
+                setActiveTab(mechanicsBtn, mechanics);
+            });
+            
+            electromagnetismBtn.addEventListener('click', function() {
+                setActiveTab(electromagnetismBtn, electromagnetism);
+            });
+            
+            opticsBtn.addEventListener('click', function() {
+                setActiveTab(opticsBtn, optics);
+            });
+            
+            function setActiveTab(button, content) {
+                // Remove active class from all buttons and content
+                [mechanicsBtn, electromagnetismBtn, opticsBtn].forEach(btn => btn.classList.remove('active'));
+                [mechanics, electromagnetism, optics].forEach(cont => cont.classList.remove('active'));
+                
+                // Add active class to selected button and content
+                button.classList.add('active');
+                content.classList.add('active');
+            }
+            
+            // Start AR button
+            const startArBtn = document.getElementById('startArBtn');
+            const arSetup = document.getElementById('arSetup');
+            const experimentContainer = document.getElementById('experimentContainer');
+            
+            startArBtn.addEventListener('click', function() {
+                arSetup.style.display = 'none';
+                experimentContainer.style.display = 'block';
+                
+                // Initialize all experiments
+                initMechanics();
+                initElectromagnetism();
+                initOptics();
+            });
+            
+            // Mechanics experiment
+            function initMechanics() {
+                const gravitySlider = document.getElementById('gravitySlider');
+                const gravityValue = document.getElementById('gravityValue');
+                const massSlider = document.getElementById('massSlider');
+                const massValue = document.getElementById('massValue');
+                const velocitySlider = document.getElementById('velocitySlider');
+                const velocityValue = document.getElementById('velocityValue');
+                const startMechanicsBtn = document.getElementById('startMechanicsBtn');
+                
+                let gravity = 9.8;
+                let mass = 1.0;
+                let initialVelocity = 5.0;
+                
+                gravitySlider.addEventListener('input', function() {
+                    gravity = parseFloat(this.value);
+                    gravityValue.textContent = `${gravity} m/s²`;
+                });
+                
+                massSlider.addEventListener('input', function() {
+                    mass = parseFloat(this.value);
+                    massValue.textContent = `${mass} kg`;
+                });
+                
+                velocitySlider.addEventListener('input', function() {
+                    initialVelocity = parseFloat(this.value);
+                    velocityValue.textContent = `${initialVelocity} m/s`;
+                });
+                
+                // Three.js scene setup for mechanics
+                const mechanicsScene = document.getElementById('mechanicsScene');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, mechanicsScene.clientWidth / mechanicsScene.clientHeight, 0.1, 1000);
+                camera.position.z = 5;
+                
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(mechanicsScene.clientWidth, mechanicsScene.clientHeight);
+                mechanicsScene.appendChild(renderer.domElement);
+                
+                // Add lighting
+                const ambientLight = new THREE.AmbientLight(0x404040);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+                directionalLight.position.set(0, 1, 0);
+                scene.add(directionalLight);
+                
+                // Create a ball for physics simulation
+                const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+                const ballMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+                ball.position.y = 3;
+                scene.add(ball);
+                
+                // Create ground
+                const groundGeometry = new THREE.BoxGeometry(10, 0.2, 10);
+                const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.position.y = -2;
+                scene.add(ground);
+                
+                // Physics simulation variables
+                let currentVelocity = 0;
+                let currentHeight = 3;
+                let isSimulating = false;
+                let lastTime = 0;
+                
+                // DOM elements for metrics
+                const currentVelocityElement = document.getElementById('currentVelocity');
+                const kineticEnergyElement = document.getElementById('kineticEnergy');
+                const potentialEnergyElement = document.getElementById('potentialEnergy');
+                
+                // Start simulation button
+                startMechanicsBtn.addEventListener('click', function() {
+                    currentVelocity = initialVelocity;
+                    currentHeight = 3;
+                    ball.position.y = currentHeight;
+                    isSimulating = true;
+                });
+                
+                // Animation function
+                function animate(time) {
+                    requestAnimationFrame(animate);
+                    
+                    if (isSimulating) {
+                        // Calculate delta time
+                        const delta = lastTime === 0 ? 0 : (time - lastTime) / 1000;
+                        lastTime = time;
+                        
+                        // Apply gravity
+                        currentVelocity -= gravity * delta;
+                        currentHeight += currentVelocity * delta;
+                        
+                        // Bounce when hitting the ground
+                        if (currentHeight <= -1.5) {
+                            currentHeight = -1.5;
+                            currentVelocity = -currentVelocity * 0.7; // Bounce with energy loss
+                            
+                            // Stop simulation if velocity is too low
+                            if (Math.abs(currentVelocity) < 0.5) {
+                                isSimulating = false;
+                                currentVelocity = 0;
+                            }
+                        }
+                        
+                        // Update ball position
+                        ball.position.y = currentHeight;
+                        
+                        // Update metrics
+                        currentVelocityElement.textContent = `${Math.abs(currentVelocity).toFixed(2)} m/s`;
+                        const kineticEnergy = 0.5 * mass * Math.pow(currentVelocity, 2);
+                        kineticEnergyElement.textContent = `${kineticEnergy.toFixed(2)} J`;
+                        const potentialEnergy = mass * gravity * (currentHeight + 1.5);
+                        potentialEnergyElement.textContent = `${potentialEnergy.toFixed(2)} J`;
+                    }
+                    
+                    renderer.render(scene, camera);
+                }
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    camera.aspect = mechanicsScene.clientWidth / mechanicsScene.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(mechanicsScene.clientWidth, mechanicsScene.clientHeight);
+                });
+                
+                animate(0);
+            }
+            
+            // Electromagnetism experiment
+            function initElectromagnetism() {
+                const currentSlider = document.getElementById('currentSlider');
+                const currentValue = document.getElementById('currentValue');
+                const magneticFieldSlider = document.getElementById('magneticFieldSlider');
+                const magneticFieldValue = document.getElementById('magneticFieldValue');
+                const visualizeFieldBtn = document.getElementById('visualizeFieldBtn');
+                
+                let current = 1.0;
+                let magneticField = 0.5;
+                const wireLength = 0.5;
+                const area = 0.25;
+                
+                currentSlider.addEventListener('input', function() {
+                    current = parseFloat(this.value);
+                    currentValue.textContent = `${current} A`;
+                    updateMetrics();
+                });
+                
+                magneticFieldSlider.addEventListener('input', function() {
+                    magneticField = parseFloat(this.value);
+                    magneticFieldValue.textContent = `${magneticField} T`;
+                    updateMetrics();
+                });
+                
+                function updateMetrics() {
+                    // F = I * L * B
+                    const force = current * wireLength * magneticField;
+                    document.getElementById('emForce').textContent = `${force.toFixed(2)} N`;
+                    
+                    // Φ = B * A
+                    const flux = magneticField * area;
+                    document.getElementById('magneticFlux').textContent = `${flux.toFixed(2)} Wb`;
+                }
+                
+                // Three.js scene setup for electromagnetism
+                const emScene = document.getElementById('emScene');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, emScene.clientWidth / emScene.clientHeight, 0.1, 1000);
+                camera.position.z = 5;
+                
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(emScene.clientWidth, emScene.clientHeight);
+                emScene.appendChild(renderer.domElement);
+                
+                // Add lighting
+                const ambientLight = new THREE.AmbientLight(0x404040);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+                directionalLight.position.set(0, 1, 0);
+                scene.add(directionalLight);
+                
+                // Create a coil
+                const torusGeometry = new THREE.TorusGeometry(1, 0.1, 16, 100);
+                const torusMaterial = new THREE.MeshStandardMaterial({ color: 0xff8800 });
+                const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+                scene.add(torus);
+                
+                // Create wire
+                const wireGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4, 32);
+                const wireMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+                const wire = new THREE.Mesh(wireGeometry, wireMaterial);
+                wire.rotation.x = Math.PI / 2;
+                scene.add(wire);
+                
+                let fieldLines = [];
+                
+                visualizeFieldBtn.addEventListener('click', function() {
+                    // Remove existing field lines
+                    for (const line of fieldLines) {
+                        scene.remove(line);
+                    }
+                    fieldLines = [];
+                    
+                    // Create magnetic field lines
+                    const lineCount = Math.floor(magneticField * 20);
+                    const radius = 1.5;
+                    
+                    for (let i = 0; i < lineCount; i++) {
+                        const points = [];
+                        for (let j = 0; j <= 64; j++) {
+                            const angle = (j / 64) * Math.PI * 2;
+                            points.push(new THREE.Vector3(
+                                Math.cos(angle) * radius,
+                                Math.sin(angle) * radius,
+                                (i - lineCount/2) * 0.2
+                            ));
+                        }
+                        
+                        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                        const lineMaterial = new THREE.LineBasicMaterial({ 
+                            color: 0x0000ff,
+                            linewidth: current * 2
+                        });
+                        
+                        const line = new THREE.Line(lineGeometry, lineMaterial);
+                        scene.add(line);
+                        fieldLines.push(line);
+                    }
+                    
+                    // Create arrows to indicate current
+                    const arrowCount = 8;
+                    for (let i = 0; i < arrowCount; i++) {
+                        const angle = (i / arrowCount) * Math.PI * 2;
+                        const coneGeometry = new THREE.ConeGeometry(0.1, 0.3, 32);
+                        const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                        const cone = new THREE.Mesh(coneGeometry, coneMaterial);
+                        
+                        cone.position.set(
+                            Math.cos(angle) * 1,
+                            Math.sin(angle) * 1,
+                            0
+                        );
+                        
+                        cone.lookAt(0, 0, 0);
+                        scene.add(cone);
+                        fieldLines.push(cone);
+                    }
+                });
+                
+                function animate() {
+                    requestAnimationFrame(animate);
+                    
+                    // Rotate torus for visual effect
+                    torus.rotation.x += 0.005;
+                    torus.rotation.y += 0.005;
+                    
+                    renderer.render(scene, camera);
+                }
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    camera.aspect = emScene.clientWidth / emScene.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(emScene.clientWidth, emScene.clientHeight);
+                });
+                
+                updateMetrics();
+                animate();
+            }
+            
+            // Optics experiment
+            function initOptics() {
+                const focalLengthSlider = document.getElementById('focalLengthSlider');
+                const focalLengthValue = document.getElementById('focalLengthValue');
+                const objectDistanceSlider = document.getElementById('objectDistanceSlider');
+                const objectDistanceValue = document.getElementById('objectDistanceValue');
+                const objectHeightSlider = document.getElementById('objectHeightSlider');
+                const objectHeightValue = document.getElementById('objectHeightValue');
+                const calculateImageBtn = document.getElementById('calculateImageBtn');
+                
+                let focalLength = 10;
+                let objectDistance = 20;
+                let objectHeight = 5;
+                
+                focalLengthSlider.addEventListener('input', function() {
+                    focalLength = parseInt(this.value);
+                    focalLengthValue.textContent = `${focalLength} cm`;
+                });
+                
+                objectDistanceSlider.addEventListener('input', function() {
+                    objectDistance = parseInt(this.value);
+                    objectDistanceValue.textContent = `${objectDistance} cm`;
+                });
+                
+                objectHeightSlider.addEventListener('input', function() {
+                    objectHeight = parseInt(this.value);
+                    objectHeightValue.textContent = `${objectHeight} cm`;
+                });
+                
+                // Three.js scene setup for optics
+                const opticsScene = document.getElementById('opticsScene');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, opticsScene.clientWidth / opticsScene.clientHeight, 0.1, 1000);
+                camera.position.z = 5;
+                camera.position.y = 1;
+                camera.lookAt(0, 0, 0);
+                
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(opticsScene.clientWidth, opticsScene.clientHeight);
+                opticsScene.appendChild(renderer.domElement);
+                
+                // Add lighting
+                const ambientLight = new THREE.AmbientLight(0x404040);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+                directionalLight.position.set(0, 1, 0);
+                scene.add(directionalLight);
+                
+                // Create lens
+                const lensGeometry = new THREE.CylinderGeometry(1, 1, 0.1, 32);
+                const lensMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0x88ccff,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+                lens.rotation.x = Math.PI / 2;
+                scene.add(lens);
+                
+                // Create optical axis
+                const axisGeometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-5, 0, 0),
+                    new THREE.Vector3(5, 0, 0)
+                ]);
+                const axisMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+                const axis = new THREE.Line(axisGeometry, axisMaterial);
+                scene.add(axis);
+                
+                // Create object (arrow)
+                const objectGeometry = new THREE.BoxGeometry(0.1, 1, 0.1);
+                const objectMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                const object = new THREE.Mesh(objectGeometry, objectMaterial);
+                object.position.set(-2, 0.5, 0);
+                scene.add(object);
+                
+                // Placeholder for image
+                let image = null;
+                let rays = [];
+                
+                calculateImageBtn.addEventListener('click', function() {
+                    // Remove existing image and rays
+                    if (image) scene.remove(image);
+                    for (const ray of rays) {
+                        scene.remove(ray);
+                    }
+                    rays = [];
+                    
+                    // Calculate image properties
+                    // 1/f = 1/do + 1/di
+                    let imageDistance;
+                    if (objectDistance === focalLength) {
+                        imageDistance = Infinity;
+                    } else {
+                        imageDistance = (objectDistance * focalLength) / (objectDistance - focalLength);
+                    }
+                    
+                    let imageHeight = objectHeight * Math.abs(imageDistance / objectDistance);
+                    let magnification = Math.abs(imageDistance / objectDistance);
+                    let isImageReal = imageDistance > 0;
+                    
+                    // Update metrics
+                    document.getElementById('imageDistance').textContent = `${imageDistance.toFixed(2)} cm`;
+                    document.getElementById('imageHeight').textContent = `${imageHeight.toFixed(2)} cm`;
+                    document.getElementById('magnification').textContent = `${magnification.toFixed(2)}x`;
+                    
+                    // Scale for visualization
+                    const scale = 0.05;
+                    
+                    // Position object
+                    object.position.x = -objectDistance * scale;
+                    object.scale.y = objectHeight * scale;
+                    
+                    // Create image
+                    const imageGeometry = new THREE.BoxGeometry(0.1, 1, 0.1);
+                    const imageMaterial = new THREE.MeshStandardMaterial({ 
+                        color: 0xff00ff,
+                        transparent: true,
