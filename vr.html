@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VR Laboratory</title>
+  <title>VR Physics Laboratory</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
@@ -42,46 +42,18 @@
       transform: translateX(-50%);
       z-index: 10;
     }
-    .controls {
+    .orientation-info {
       position: absolute;
-      bottom: 20px;
-      left: 20px;
+      top: 10px;
+      left: 10px;
+      color: rgba(255, 255, 255, 0.7);
+      font-family: Arial, sans-serif;
+      font-size: 12px;
       background: rgba(0, 0, 0, 0.5);
-      padding: 10px;
+      padding: 5px;
       border-radius: 5px;
-      color: white;
       z-index: 100;
-    }
-    .button {
-      background: #4CAF50;
-      color: white;
-      border: none;
-      padding: 8px 15px;
-      margin: 5px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .orientation-data {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      border-radius: 5px;
-      color: white;
-      z-index: 100;
-    }
-    .fullscreen-btn {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      background: #2196F3;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      cursor: pointer;
-      z-index: 100;
+      opacity: 0.7;
     }
   </style>
 </head>
@@ -93,72 +65,45 @@
       <div class="eye-view right-eye" id="right-eye"></div>
     </div>
     
-    <div class="orientation-data" v-if="showControls">
-      <h3>Orientation</h3>
-      <p>Alpha: {{ orientationData.alpha.toFixed(1) }}°</p>
-      <p>Beta: {{ orientationData.beta.toFixed(1) }}°</p>
-      <p>Gamma: {{ orientationData.gamma.toFixed(1) }}°</p>
-      <p>Looking: {{ lookingDirection }}</p>
+    <div class="orientation-info" v-if="showDebug">
+      Looking: {{ lookingDirection }}
     </div>
-    
-    <div class="controls" v-if="showControls">
-      <h3>Controls</h3>
-      <button class="button" @click="addTestTube">Add Test Tube</button>
-      <button class="button" @click="addFlask">Add Flask</button>
-      <button class="button" @click="addMicroscope">Add Microscope</button>
-      <button class="button" @click="clearObjects">Clear All</button>
-    </div>
-    
-    <button class="fullscreen-btn" @click="toggleFullscreen">
-      {{ isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
-    </button>
   </div>
 
   <script>
-    const { createApp, ref, onMounted, watch } = Vue;
+    const { createApp, ref, onMounted } = Vue;
     
     createApp({
       setup() {
-        const showControls = ref(true);
-        const isFullscreen = ref(false);
+        const showDebug = ref(false);
         const orientationData = ref({ alpha: 0, beta: 0, gamma: 0 });
         const lookingDirection = ref('Forward');
         
         // Three.js variables
-        let scene, camera, rendererLeft, rendererRight, laboratory;
-        let objects = [];
+        let scene, camera, rendererLeft, rendererRight;
+        let physicsWorld = [];
+        let clock = new THREE.Clock();
         
-        const toggleFullscreen = () => {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().then(() => {
-              isFullscreen.value = true;
-              setTimeout(() => {
-                showControls.value = false;
-              }, 2000); // Hide controls after 2 seconds in fullscreen
-            });
-          } else {
-            if (document.exitFullscreen) {
-              document.exitFullscreen().then(() => {
-                isFullscreen.value = false;
-                showControls.value = true;
-              });
-            }
-          }
-        };
+        // Physics simulation variables
+        const gravity = -9.8;
+        let pendulumSystem, inclinedPlane, ballDropExperiment, springSystem;
+        let pendulumAngle = 0;
+        let springCompression = 0;
+        let springDirection = 1;
         
         const initThreeJS = () => {
           // Create scene
           scene = new THREE.Scene();
-          scene.background = new THREE.Color(0x1a1a2e);
+          scene.background = new THREE.Color(0x0a0a2a);
           
           // Create camera
           camera = new THREE.PerspectiveCamera(
-            75, 
+            70, 
             window.innerWidth / 2 / window.innerHeight, 
             0.1, 
             1000
           );
-          camera.position.z = 5;
+          camera.position.z = 6;
           camera.position.y = 1.6; // Average human height
           
           // Create renderers for both eyes
@@ -170,6 +115,15 @@
           rendererRight.setSize(window.innerWidth / 2, window.innerHeight);
           document.getElementById('right-eye').appendChild(rendererRight.domElement);
           
+          // Enter fullscreen automatically
+          setTimeout(() => {
+            if (document.documentElement.requestFullscreen) {
+              document.documentElement.requestFullscreen().catch(err => {
+                console.log("Couldn't activate fullscreen mode:", err);
+              });
+            }
+          }, 1000);
+          
           // Add lights
           const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
           scene.add(ambientLight);
@@ -178,81 +132,15 @@
           directionalLight.position.set(5, 10, 7);
           scene.add(directionalLight);
           
-          // Create laboratory environment
-          laboratory = new THREE.Group();
-          scene.add(laboratory);
+          const pointLight = new THREE.PointLight(0xffffff, 0.5);
+          pointLight.position.set(0, 4, 2);
+          scene.add(pointLight);
           
-          // Floor
-          const floorGeometry = new THREE.PlaneGeometry(20, 20);
-          const floorMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x333333,
-            roughness: 0.8 
-          });
-          const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-          floor.rotation.x = -Math.PI / 2;
-          floor.position.y = -0.5;
-          laboratory.add(floor);
+          // Create physics laboratory environment
+          createLaboratory();
           
-          // Walls
-          const wallMaterial = new THREE.MeshStandardMaterial({
-            color: 0xf0f0f0,
-            roughness: 0.7
-          });
-          
-          // Back wall
-          const backWallGeometry = new THREE.PlaneGeometry(20, 4);
-          const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
-          backWall.position.z = -10;
-          backWall.position.y = 1.5;
-          laboratory.add(backWall);
-          
-          // Left wall
-          const leftWallGeometry = new THREE.PlaneGeometry(20, 4);
-          const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
-          leftWall.position.x = -10;
-          leftWall.position.y = 1.5;
-          leftWall.rotation.y = Math.PI / 2;
-          laboratory.add(leftWall);
-          
-          // Right wall
-          const rightWallGeometry = new THREE.PlaneGeometry(20, 4);
-          const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
-          rightWall.position.x = 10;
-          rightWall.position.y = 1.5;
-          rightWall.rotation.y = -Math.PI / 2;
-          laboratory.add(rightWall);
-          
-          // Lab table
-          const tableGeometry = new THREE.BoxGeometry(6, 0.2, 2);
-          const tableMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-          const table = new THREE.Mesh(tableGeometry, tableMaterial);
-          table.position.z = -3;
-          table.position.y = 0.8;
-          laboratory.add(table);
-          
-          // Lab table legs
-          const legGeometry = new THREE.BoxGeometry(0.15, 1.6, 0.15);
-          const legMaterial = new THREE.MeshStandardMaterial({ color: 0x5D4037 });
-          
-          const positions = [
-            [-2.8, -0.4, -3.9],
-            [2.8, -0.4, -3.9],
-            [-2.8, -0.4, -2.1],
-            [2.8, -0.4, -2.1]
-          ];
-          
-          positions.forEach(pos => {
-            const leg = new THREE.Mesh(legGeometry, legMaterial);
-            leg.position.set(pos[0], pos[1], pos[2]);
-            laboratory.add(leg);
-          });
-          
-          // Add some decorative lab equipment
-          addLabEquipment();
-          
-          // Add initial objects
-          addTestTube();
-          addFlask();
+          // Setup experiments
+          setupExperiments();
           
           // Handle window resize
           window.addEventListener('resize', onWindowResize);
@@ -261,173 +149,447 @@
           animate();
         };
         
-        const addLabEquipment = () => {
-          // Add some shelves to the back wall
+        const createLaboratory = () => {
+          // Floor
+          const floorGeometry = new THREE.PlaneGeometry(20, 20);
+          const floorMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x222222,
+            roughness: 0.8 
+          });
+          const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+          floor.rotation.x = -Math.PI / 2;
+          floor.position.y = -0.5;
+          scene.add(floor);
+          
+          // Grid on floor
+          const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x333333);
+          gridHelper.position.y = -0.49;
+          scene.add(gridHelper);
+          
+          // Walls
+          const wallMaterial = new THREE.MeshStandardMaterial({
+            color: 0x334455,
+            roughness: 0.7
+          });
+          
+          // Back wall
+          const backWallGeometry = new THREE.PlaneGeometry(20, 5);
+          const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+          backWall.position.z = -10;
+          backWall.position.y = 2;
+          scene.add(backWall);
+          
+          // Left wall
+          const leftWallGeometry = new THREE.PlaneGeometry(20, 5);
+          const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+          leftWall.position.x = -10;
+          leftWall.position.y = 2;
+          leftWall.rotation.y = Math.PI / 2;
+          scene.add(leftWall);
+          
+          // Right wall
+          const rightWallGeometry = new THREE.PlaneGeometry(20, 5);
+          const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+          rightWall.position.x = 10;
+          rightWall.position.y = 2;
+          rightWall.rotation.y = -Math.PI / 2;
+          scene.add(rightWall);
+          
+          // Physics lab bench
+          const benchGeometry = new THREE.BoxGeometry(8, 0.2, 2);
+          const benchMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+          const bench = new THREE.Mesh(benchGeometry, benchMaterial);
+          bench.position.z = -2;
+          bench.position.y = 0.8;
+          scene.add(bench);
+          
+          // Add some lab decor
+          addLabDecor();
+          
+          // Add lab name sign
+          addLabSign();
+        };
+        
+        const addLabDecor = () => {
+          // Add some shelves with physics books and equipment
           const shelfGeometry = new THREE.BoxGeometry(3, 0.1, 0.5);
           const shelfMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
           
           for (let i = 0; i < 3; i++) {
             const shelf = new THREE.Mesh(shelfGeometry, shelfMaterial);
-            shelf.position.set(-3, 1.5 + i * 0.8, -9.7);
-            laboratory.add(shelf);
+            shelf.position.set(-6, 1.5 + i * 0.8, -9.7);
+            scene.add(shelf);
             
-            const shelf2 = new THREE.Mesh(shelfGeometry, shelfMaterial);
-            shelf2.position.set(3, 1.5 + i * 0.8, -9.7);
-            laboratory.add(shelf2);
+            // Add books on shelf
+            for (let j = 0; j < 4; j++) {
+              const bookGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.4);
+              const bookMaterial = new THREE.MeshStandardMaterial({ 
+                color: new THREE.Color(
+                  Math.random() * 0.5 + 0.5, 
+                  Math.random() * 0.5, 
+                  Math.random() * 0.5
+                ) 
+              });
+              const book = new THREE.Mesh(bookGeometry, bookMaterial);
+              book.rotation.z = Math.random() * 0.1 - 0.05;
+              book.position.set(-6 - 1.2 + j * 0.5, 1.7 + i * 0.8, -9.7);
+              scene.add(book);
+            }
           }
+          
+          // Add a whiteboard with physics formulas
+          const whiteboardGeometry = new THREE.PlaneGeometry(4, 2);
+          const whiteboardMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+          const whiteboard = new THREE.Mesh(whiteboardGeometry, whiteboardMaterial);
+          whiteboard.position.set(0, 2, -9.8);
+          scene.add(whiteboard);
+          
+          // Add borders to whiteboard
+          const borderMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+          
+          const topBorder = new THREE.Mesh(
+            new THREE.BoxGeometry(4.1, 0.1, 0.1),
+            borderMaterial
+          );
+          topBorder.position.set(0, 3.05, -9.75);
+          scene.add(topBorder);
+          
+          const bottomBorder = new THREE.Mesh(
+            new THREE.BoxGeometry(4.1, 0.1, 0.1),
+            borderMaterial
+          );
+          bottomBorder.position.set(0, 0.95, -9.75);
+          scene.add(bottomBorder);
+          
+          const leftBorder = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 2.1, 0.1),
+            borderMaterial
+          );
+          leftBorder.position.set(-2.05, 2, -9.75);
+          scene.add(leftBorder);
+          
+          const rightBorder = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 2.1, 0.1),
+            borderMaterial
+          );
+          rightBorder.position.set(2.05, 2, -9.75);
+          scene.add(rightBorder);
+          
+          // Add some text to the whiteboard (formulas)
+          // We'll simulate this using small dark geometries
+          
+          // F = ma
+          const formula1Geometry = new THREE.PlaneGeometry(1.5, 0.3);
+          const formula1Material = new THREE.MeshBasicMaterial({ color: 0x000088 });
+          const formula1 = new THREE.Mesh(formula1Geometry, formula1Material);
+          formula1.position.set(-1, 2.7, -9.75);
+          scene.add(formula1);
+          
+          // E = mc²
+          const formula2Geometry = new THREE.PlaneGeometry(1.5, 0.3);
+          const formula2Material = new THREE.MeshBasicMaterial({ color: 0x000088 });
+          const formula2 = new THREE.Mesh(formula2Geometry, formula2Material);
+          formula2.position.set(1, 2.7, -9.75);
+          scene.add(formula2);
+          
+          // Graph 
+          const graphGeometry = new THREE.PlaneGeometry(1.5, 1.5);
+          const graphMaterial = new THREE.MeshBasicMaterial({ color: 0x000088 });
+          const graph = new THREE.Mesh(graphGeometry, graphMaterial);
+          graph.position.set(-1, 1.5, -9.75);
+          scene.add(graph);
         };
         
-        const addTestTube = () => {
-          // Create test tube (cylinder with hemisphere cap)
-          const tubeGroup = new THREE.Group();
+        const addLabSign = () => {
+          const signGeometry = new THREE.PlaneGeometry(4, 0.8);
+          const signMaterial = new THREE.MeshStandardMaterial({ color: 0x3366aa });
+          const sign = new THREE.Mesh(signGeometry, signMaterial);
+          sign.position.set(0, 3.5, -9.7);
+          scene.add(sign);
           
-          const tubeGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 32);
-          const capGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-          const glassMaterial = new THREE.MeshPhysicalMaterial({ 
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.3,
-            roughness: 0.1,
-            transmission: 0.9
-          });
+          // Add a border to the sign
+          const borderMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
           
-          const tube = new THREE.Mesh(tubeGeometry, glassMaterial);
-          tube.position.y = 0.25;
-          tubeGroup.add(tube);
+          const borderGeometry = new THREE.BoxGeometry(4.2, 1, 0.1);
+          const border = new THREE.Mesh(borderGeometry, borderMaterial);
+          border.position.set(0, 3.5, -9.75);
+          scene.add(border);
           
-          const cap = new THREE.Mesh(capGeometry, glassMaterial);
-          cap.position.y = 0.5;
-          tubeGroup.add(cap);
-          
-          // Add some colored liquid
-          const liquidColor = new THREE.Color(
-            Math.random(), 
-            Math.random(), 
-            Math.random()
-          );
-          
-          const liquidGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 32);
-          const liquidMaterial = new THREE.MeshStandardMaterial({ 
-            color: liquidColor,
-            transparent: true,
-            opacity: 0.8
-          });
-          
-          const liquid = new THREE.Mesh(liquidGeometry, liquidMaterial);
-          liquid.position.y = 0.15;
-          tubeGroup.add(liquid);
-          
-          // Position the test tube on the table
-          tubeGroup.position.set(
-            Math.random() * 2 - 1,
-            1.0,
-            -3 + Math.random() * 0.6 - 0.3
-          );
-          
-          laboratory.add(tubeGroup);
-          objects.push(tubeGroup);
+          // Add a simulated text on the sign
+          const textGeometry = new THREE.PlaneGeometry(3.5, 0.6);
+          const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          const text = new THREE.Mesh(textGeometry, textMaterial);
+          text.position.set(0, 3.5, -9.65);
+          scene.add(text);
         };
         
-        const addFlask = () => {
-          // Create Erlenmeyer flask
-          const flaskGroup = new THREE.Group();
-          
-          const flaskGeometry = new THREE.CylinderGeometry(0.15, 0.3, 0.4, 32);
-          const neckGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 32);
-          const glassMaterial = new THREE.MeshPhysicalMaterial({ 
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.3,
-            roughness: 0.1,
-            transmission: 0.9
-          });
-          
-          const flask = new THREE.Mesh(flaskGeometry, glassMaterial);
-          flask.position.y = 0.2;
-          flaskGroup.add(flask);
-          
-          const neck = new THREE.Mesh(neckGeometry, glassMaterial);
-          neck.position.y = 0.5;
-          flaskGroup.add(neck);
-          
-          // Add some colored liquid
-          const liquidColor = new THREE.Color(
-            Math.random(), 
-            Math.random(), 
-            Math.random()
-          );
-          
-          const liquidGeometry = new THREE.CylinderGeometry(0.14, 0.29, 0.2, 32);
-          const liquidMaterial = new THREE.MeshStandardMaterial({ 
-            color: liquidColor,
-            transparent: true,
-            opacity: 0.8
-          });
-          
-          const liquid = new THREE.Mesh(liquidGeometry, liquidMaterial);
-          liquid.position.y = 0.1;
-          flaskGroup.add(liquid);
-          
-          // Position the flask on the table
-          flaskGroup.position.set(
-            Math.random() * 2 - 1,
-            1.0,
-            -3 + Math.random() * 0.6 - 0.3
-          );
-          
-          laboratory.add(flaskGroup);
-          objects.push(flaskGroup);
+        const setupExperiments = () => {
+          setupPendulumExperiment();
+          setupInclinedPlaneExperiment();
+          setupBallDropExperiment();
+          setupSpringExperiment();
         };
         
-        const addMicroscope = () => {
-          const microscopeGroup = new THREE.Group();
+        const setupPendulumExperiment = () => {
+          pendulumSystem = new THREE.Group();
+          
+          // Stand
+          const standGeometry = new THREE.BoxGeometry(0.1, 2, 0.1);
+          const standMaterial = new THREE.MeshStandardMaterial({ color: 0x4d4d4d });
+          const stand = new THREE.Mesh(standGeometry, standMaterial);
+          stand.position.y = 1;
+          stand.position.x = -3;
+          stand.position.z = -1.5;
+          pendulumSystem.add(stand);
+          
+          // Crossbar
+          const crossbarGeometry = new THREE.BoxGeometry(1, 0.05, 0.05);
+          const crossbar = new THREE.Mesh(crossbarGeometry, standMaterial);
+          crossbar.position.y = 2;
+          crossbar.position.x = -2.5;
+          crossbar.position.z = -1.5;
+          pendulumSystem.add(crossbar);
+          
+          // String
+          const stringGeometry = new THREE.CylinderGeometry(0.01, 0.01, 1, 8);
+          const stringMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+          const string = new THREE.Mesh(stringGeometry, stringMaterial);
+          string.position.y = 1.5;
+          string.position.x = -2.5;
+          string.position.z = -1.5;
+          pendulumSystem.add(string);
+          
+          // Bob
+          const bobGeometry = new THREE.SphereGeometry(0.15, 32, 16);
+          const bobMaterial = new THREE.MeshStandardMaterial({ color: 0xcc3333 });
+          const bob = new THREE.Mesh(bobGeometry, bobMaterial);
+          bob.position.y = 1;
+          bob.position.x = -2.5;
+          bob.position.z = -1.5;
+          pendulumSystem.add(bob);
+          
+          scene.add(pendulumSystem);
+          
+          // Set the pendulum in motion
+          pendulumAngle = Math.PI / 4;
+        };
+        
+        const setupInclinedPlaneExperiment = () => {
+          inclinedPlane = new THREE.Group();
           
           // Base
-          const baseGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.6);
-          const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+          const baseGeometry = new THREE.BoxGeometry(1.5, 0.1, 2);
+          const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
           const base = new THREE.Mesh(baseGeometry, baseMaterial);
-          microscopeGroup.add(base);
+          base.position.y = 0.9;
+          base.position.x = 0;
+          base.position.z = -1.5;
+          inclinedPlane.add(base);
           
-          // Arm
-          const armGeometry = new THREE.BoxGeometry(0.1, 0.6, 0.1);
-          const armMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-          const arm = new THREE.Mesh(armGeometry, armMaterial);
-          arm.position.set(0, 0.3, -0.2);
-          microscopeGroup.add(arm);
+          // Inclined plane
+          const planeGeometry = new THREE.BoxGeometry(1, 0.05, 1.5);
+          const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+          const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+          plane.position.y = 1.15;
+          plane.position.x = 0;
+          plane.position.z = -1.5;
+          plane.rotation.x = -Math.PI / 8;
+          inclinedPlane.add(plane);
           
-          // Head
-          const headGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 32);
-          const headMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-          const head = new THREE.Mesh(headGeometry, headMaterial);
-          head.position.set(0, 0.5, -0.2);
-          head.rotation.x = Math.PI / 2;
-          microscopeGroup.add(head);
+          // Ball on the inclined plane
+          const ballGeometry = new THREE.SphereGeometry(0.1, 32, 16);
+          const ballMaterial = new THREE.MeshStandardMaterial({ color: 0x3399ff });
+          const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+          ball.position.y = 1.35;
+          ball.position.x = 0;
+          ball.position.z = -1.0;
+          inclinedPlane.add(ball);
           
-          // Objective lenses
-          const lensGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.15, 32);
-          const lensMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
-          
-          const lens1 = new THREE.Mesh(lensGeometry, lensMaterial);
-          lens1.position.set(0, 0.3, -0.1);
-          lens1.rotation.x = Math.PI / 2;
-          microscopeGroup.add(lens1);
-          
-          // Position microscope on the table
-          microscopeGroup.position.set(
-            Math.random() * 3 - 1.5,
-            1.0,
-            -3 + Math.random()
-          );
-          
-          laboratory.add(microscopeGroup);
-          objects.push(microscopeGroup);
+          scene.add(inclinedPlane);
         };
         
-        const clearObjects = () => {
-          objects.forEach(obj => {
-            laboratory.remove(obj);
+        const setupBallDropExperiment = () => {
+          ballDropExperiment = new THREE.Group();
+          
+          // Vacuum tube (glass cylinder)
+          const tubeGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1.8, 32, 1, true);
+          const tubeMaterial = new THREE.MeshPhysicalMaterial({ 
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            roughness: 0.1,
+            transmission: 0.9
           });
-          objects = [];
+          const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+          tube.position.y = 1.4;
+          tube.position.x = 2.5;
+          tube.position.z = -1.5;
+          ballDropExperiment.add(tube);
+          
+          // Base and top caps
+          const capGeometry = new THREE.CylinderGeometry(0.32, 0.32, 0.05, 32);
+          const capMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+          
+          const bottomCap = new THREE.Mesh(capGeometry, capMaterial);
+          bottomCap.position.y = 0.5;
+          bottomCap.position.x = 2.5;
+          bottomCap.position.z = -1.5;
+          ballDropExperiment.add(bottomCap);
+          
+          const topCap = new THREE.Mesh(capGeometry, capMaterial);
+          topCap.position.y = 2.3;
+          topCap.position.x = 2.5;
+          topCap.position.z = -1.5;
+          ballDropExperiment.add(topCap);
+          
+          // Feather
+          const featherGeometry = new THREE.ConeGeometry(0.05, 0.2, 8);
+          const featherMaterial = new THREE.MeshStandardMaterial({ color: 0xffffcc });
+          const feather = new THREE.Mesh(featherGeometry, featherMaterial);
+          feather.position.y = 2.1;
+          feather.position.x = 2.4;
+          feather.position.z = -1.5;
+          feather.rotation.z = Math.PI / 4;
+          ballDropExperiment.add(feather);
+          
+          // Metal ball
+          const ballGeometry = new THREE.SphereGeometry(0.08, 32, 16);
+          const ballMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+          const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+          ball.position.y = 2.1;
+          ball.position.x = 2.6;
+          ball.position.z = -1.5;
+          ballDropExperiment.add(ball);
+          
+          scene.add(ballDropExperiment);
+        };
+        
+        const setupSpringExperiment = () => {
+          springSystem = new THREE.Group();
+          
+          // Stand
+          const standGeometry = new THREE.BoxGeometry(0.1, 2, 0.1);
+          const standMaterial = new THREE.MeshStandardMaterial({ color: 0x4d4d4d });
+          const stand = new THREE.Mesh(standGeometry, standMaterial);
+          stand.position.y = 1;
+          stand.position.x = -1;
+          stand.position.z = -1.5;
+          springSystem.add(stand);
+          
+          // Top plate
+          const plateGeometry = new THREE.BoxGeometry(0.5, 0.05, 0.5);
+          const plateMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+          const plate = new THREE.Mesh(plateGeometry, plateMaterial);
+          plate.position.y = 2;
+          plate.position.x = -1;
+          plate.position.z = -1.5;
+          springSystem.add(plate);
+          
+          // Create a spring using small cylinder segments
+          const springMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+          
+          for (let i = 0; i < 20; i++) {
+            const springSegmentGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16);
+            const springSegment = new THREE.Mesh(springSegmentGeometry, springMaterial);
+            springSegment.position.y = 1.9 - i * 0.05;
+            springSegment.position.x = -1;
+            springSegment.position.z = -1.5;
+            springSystem.add(springSegment);
+          }
+          
+          // Weight
+          const weightGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 32);
+          const weightMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+          const weight = new THREE.Mesh(weightGeometry, weightMaterial);
+          weight.position.y = 0.8;
+          weight.position.x = -1;
+          weight.position.z = -1.5;
+          springSystem.add(weight);
+          
+          scene.add(springSystem);
+        };
+        
+        const updatePhysicsSimulations = (deltaTime) => {
+          // Update pendulum
+          const pendulumL = 1.0; // pendulum length
+          const pendulumG = 9.8; // gravity
+          
+          // Simple harmonic pendulum equation: d²θ/dt² = -(g/L)sin(θ)
+          // We'll do a simple Euler integration
+          const pendulumAcceleration = -(pendulumG / pendulumL) * Math.sin(pendulumAngle);
+          const pendulumVelocity = pendulumAcceleration * deltaTime;
+          pendulumAngle += pendulumVelocity * deltaTime;
+          
+          // Apply to the pendulum visual
+          const bobX = -2.5 + Math.sin(pendulumAngle) * pendulumL;
+          const bobY = 2 - Math.cos(pendulumAngle) * pendulumL;
+          
+          if (pendulumSystem) {
+            // Update bob position
+            pendulumSystem.children[3].position.x = bobX;
+            pendulumSystem.children[3].position.y = bobY;
+            
+            // Update string position and rotation
+            pendulumSystem.children[2].position.x = (bobX - 2.5) / 2 + -2.5;
+            pendulumSystem.children[2].position.y = (bobY + 2) / 2;
+            pendulumSystem.children[2].rotation.z = pendulumAngle;
+          }
+          
+          // Update spring
+          const springPeriod = 2.0; // seconds per oscillation
+          const springAmplitude = 0.3; // maximum compression
+          
+          springCompression += deltaTime * springDirection;
+          if (springCompression > 1 || springCompression < 0) {
+            springDirection *= -1;
+          }
+          
+          const displacement = springAmplitude * Math.sin(springCompression * Math.PI * 2 / springPeriod);
+          
+          if (springSystem) {
+            // Update weight position
+            springSystem.children[springSystem.children.length - 1].position.y = 0.8 + displacement;
+            
+            // Update spring segments
+            for (let i = 0; i < 20; i++) {
+              const segment = springSystem.children[i + 3]; // Skip stand, plate
+              if (segment) {
+                segment.position.y = 1.9 - i * (0.05 * (1 - displacement/2)) - displacement * 0.5;
+              }
+            }
+          }
+          
+          // Update inclined plane ball position
+          if (inclinedPlane && inclinedPlane.children.length > 2) {
+            const ball = inclinedPlane.children[2];
+            ball.position.y -= 0.005;
+            ball.position.z -= 0.007;
+            
+            // Reset when it reaches the bottom
+            if (ball.position.y < 1) {
+              ball.position.y = 1.35;
+              ball.position.z = -1.0;
+            }
+            
+            // Make the ball roll
+            ball.rotation.x += 0.05;
+          }
+          
+          // Update ball drop experiment
+          if (ballDropExperiment) {
+            const feather = ballDropExperiment.children[4];
+            const ball = ballDropExperiment.children[5];
+            
+            // Move both objects downward with different speeds
+            feather.position.y -= 0.005; // Slow fall
+            ball.position.y -= 0.02;    // Fast fall
+            
+            // Reset when they reach the bottom
+            if (feather.position.y < 0.6) {
+              feather.position.y = 2.1;
+              ball.position.y = 2.1;
+            }
+          }
         };
         
         const onWindowResize = () => {
@@ -440,6 +602,11 @@
         
         const animate = () => {
           requestAnimationFrame(animate);
+          
+          const deltaTime = clock.getDelta();
+          
+          // Update physics simulations
+          updatePhysicsSimulations(deltaTime);
           
           // Apply device orientation rotation to camera
           camera.rotation.x = THREE.MathUtils.degToRad(orientationData.value.beta - 90);
@@ -495,27 +662,15 @@
         onMounted(() => {
           initThreeJS();
           
-          // Request permission for device orientation
+          // Request permission for device orientation on first interaction
           document.addEventListener('click', () => {
             requestDeviceOrientationPermission();
           }, { once: true });
-          
-          // Listen for fullscreen change events
-          document.addEventListener('fullscreenchange', () => {
-            isFullscreen.value = !!document.fullscreenElement;
-          });
         });
         
         return {
-          showControls,
-          isFullscreen,
-          orientationData,
-          lookingDirection,
-          toggleFullscreen,
-          addTestTube,
-          addFlask,
-          addMicroscope,
-          clearObjects
+          showDebug,
+          lookingDirection
         };
       }
     }).mount('#app');
