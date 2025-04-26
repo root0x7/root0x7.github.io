@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VR Laboratory</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      color: white;
+      z-index: 100;
+    }
+    .orientation-data {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      color: white;
+      z-index: 100;
+    }
+    canvas {
+      display: block;
+    }
+    .vr-mode-toggle {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="scene-container"></div>
+    
+    <div class="orientation-data" v-if="showControls">
+      <h3>Orientation Data</h3>
+      <p>Alpha (Z): {{ orientationData.alpha.toFixed(2) }}°</p>
+      <p>Beta (X): {{ orientationData.beta.toFixed(2) }}°</p>
+      <p>Gamma (Y): {{ orientationData.gamma.toFixed(2) }}°</p>
+      <p>Looking: {{ lookingDirection }}</p>
+    </div>
+    
+    <div class="controls" v-if="showControls">
+      <h3>Lab Controls</h3>
+      <button @click="addTestTube">Add Test Tube</button>
+      <button @click="addFlask">Add Flask</button>
+      <button @click="addMicroscope">Add Microscope</button>
+      <button @click="clearObjects">Clear All</button>
+    </div>
+    
+    <button class="vr-mode-toggle" @click="toggleVRMode">
+      {{ vrMode ? 'Exit VR Mode' : 'Enter VR Mode' }}
+    </button>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted, computed, watch } = Vue;
+    
+    createApp({
+      setup() {
+        const showControls = ref(true);
+        const vrMode = ref(false);
+        const orientationData = ref({ alpha: 0, beta: 0, gamma: 0 });
+        const lookingDirection = ref('Forward');
+        
+        // Three.js variables
+        let scene, camera, renderer, laboratory;
+        let objects = [];
+        
+        const toggleVRMode = () => {
+          vrMode.value = !vrMode.value;
+          
+          if (vrMode.value) {
+            // Go to fullscreen and split the view for VR
+            if (document.documentElement.requestFullscreen) {
+              document.documentElement.requestFullscreen();
+            }
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / 2 / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setScissorTest(true);
+            showControls.value = false;
+          } else {
+            // Exit fullscreen and revert to normal view
+            if (document.exitFullscreen) {
+              document.exitFullscreen();
+            }
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setScissorTest(false);
+            showControls.value = true;
+          }
+        };
+        
+        const initThreeJS = () => {
+          // Create scene
+          scene = new THREE.Scene();
+          scene.background = new THREE.Color(0x1a1a2e);
+          
+          // Create camera
+          camera = new THREE.PerspectiveCamera(
+            75, 
+            window.innerWidth / window.innerHeight, 
+            0.1, 
+            1000
+          );
+          camera.position.z = 5;
+          camera.position.y = 1.6; // Average human height
+          
+          // Create renderer
+          renderer = new THREE.WebGLRenderer({ antialias: true });
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          document.getElementById('scene-container').appendChild(renderer.domElement);
+          
+          // Add lights
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+          scene.add(ambientLight);
+          
+          const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+          directionalLight.position.set(5, 10, 7);
+          scene.add(directionalLight);
+          
+          // Create laboratory environment
+          laboratory = new THREE.Group();
+          scene.add(laboratory);
+          
+          // Floor
+          const floorGeometry = new THREE.PlaneGeometry(20, 20);
+          const floorMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x333333,
+            roughness: 0.8 
+          });
+          const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+          floor.rotation.x = -Math.PI / 2;
+          floor.position.y = -0.5;
+          laboratory.add(floor);
+          
+          // Walls
+          const wallMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf0f0f0,
+            roughness: 0.7
+          });
+          
+          // Back wall
+          const backWallGeometry = new THREE.PlaneGeometry(20, 4);
+          const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+          backWall.position.z = -10;
+          backWall.position.y = 1.5;
+          laboratory.add(backWall);
+          
+          // Left wall
+          const leftWallGeometry = new THREE.PlaneGeometry(20, 4);
+          const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+          leftWall.position.x = -10;
+          leftWall.position.y = 1.5;
+          leftWall.rotation.y = Math.PI / 2;
+          laboratory.add(leftWall);
+          
+          // Right wall
+          const rightWallGeometry = new THREE.PlaneGeometry(20, 4);
+          const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+          rightWall.position.x = 10;
+          rightWall.position.y = 1.5;
+          rightWall.rotation.y = -Math.PI / 2;
+          laboratory.add(rightWall);
+          
+          // Lab table
+          const tableGeometry = new THREE.BoxGeometry(6, 0.2, 2);
+          const tableMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+          const table = new THREE.Mesh(tableGeometry, tableMaterial);
+          table.position.z = -3;
+          table.position.y = 0.8;
+          laboratory.add(table);
+          
+          // Lab table legs
+          const legGeometry = new THREE.BoxGeometry(0.15, 1.6, 0.15);
+          const legMaterial = new THREE.MeshStandardMaterial({ color: 0x5D4037 });
+          
+          const positions = [
+            [-2.8, -0.4, -3.9],
+            [2.8, -0.4, -3.9],
+            [-2.8, -0.4, -2.1],
+            [2.8, -0.4, -2.1]
+          ];
+          
+          positions.forEach(pos => {
+            const leg = new THREE.Mesh(legGeometry, legMaterial);
+            leg.position.set(pos[0], pos[1], pos[2]);
+            laboratory.add(leg);
+          });
+          
+          // Add some decorative lab equipment
+          addLabEquipment();
+          
+          // Handle window resize
+          window.addEventListener('resize', onWindowResize);
+          
+          // Start animation loop
+          animate();
+        };
+        
+        const addLabEquipment = () => {
+          // Add some shelves to the back wall
+          const shelfGeometry = new THREE.BoxGeometry(3, 0.1, 0.5);
+          const shelfMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+          
+          for (let i = 0; i < 3; i++) {
+            const shelf = new THREE.Mesh(shelfGeometry, shelfMaterial);
+            shelf.position.set(-3, 1.5 + i * 0.8, -9.7);
+            laboratory.add(shelf);
+            
+            const shelf2 = new THREE.Mesh(shelfGeometry, shelfMaterial);
+            shelf2.position.set(3, 1.5 + i * 0.8, -9.7);
+            laboratory.add(shelf2);
+          }
+        };
+        
+        const addTestTube = () => {
+          // Create test tube (cylinder with hemisphere cap)
+          const tubeGroup = new THREE.Group();
+          
+          const tubeGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 32);
+          const capGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+          const glassMaterial = new THREE.MeshPhysicalMaterial({ 
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            roughness: 0.1,
+            transmission: 0.9
+          });
+          
+          const tube = new THREE.Mesh(tubeGeometry, glassMaterial);
+          tube.position.y = 0.25;
+          tubeGroup.add(tube);
+          
+          const cap = new THREE.Mesh(capGeometry, glassMaterial);
+          cap.position.y = 0.5;
+          tubeGroup.add(cap);
+          
+          // Add some colored liquid
+          const liquidColor = new THREE.Color(
+            Math.random(), 
+            Math.random(), 
+            Math.random()
+          );
+          
+          const liquidGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 32);
+          const liquidMaterial = new THREE.MeshStandardMaterial({ 
+            color: liquidColor,
+            transparent: true,
+            opacity: 0.8
+          });
+          
+          const liquid = new THREE.Mesh(liquidGeometry, liquidMaterial);
+          liquid.position.y = 0.15;
+          tubeGroup.add(liquid);
+          
+          // Position the test tube on the table
+          tubeGroup.position.set(
+            Math.random() * 2 - 1,
+            1.0,
+            -3 + Math.random() * 0.6 - 0.3
+          );
+          
+          laboratory.add(tubeGroup);
+          objects.push(tubeGroup);
+        };
+        
+        const addFlask = () => {
+          // Create Erlenmeyer flask
+          const flaskGroup = new THREE.Group();
+          
+          const flaskGeometry = new THREE.CylinderGeometry(0.15, 0.3, 0.4, 32);
+          const neckGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 32);
+          const glassMaterial = new THREE.MeshPhysicalMaterial({ 
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            roughness: 0.1,
+            transmission: 0.9
+          });
+          
+          const flask = new THREE.Mesh(flaskGeometry, glassMaterial);
+          flask.position.y = 0.2;
+          flaskGroup.add(flask);
+          
+          const neck = new THREE.Mesh(neckGeometry, glassMaterial);
+          neck.position.y = 0.5;
+          flaskGroup.add(neck);
+          
+          // Add some colored liquid
+          const liquidColor = new THREE.Color(
+            Math.random(), 
+            Math.random(), 
+            Math.random()
+          );
+          
+          const liquidGeometry = new THREE.CylinderGeometry(0.14, 0.29, 0.2, 32);
+          const liquidMaterial = new THREE.MeshStandardMaterial({ 
+            color: liquidColor,
+            transparent: true,
+            opacity: 0.8
+          });
+          
+          const liquid = new THREE.Mesh(liquidGeometry, liquidMaterial);
+          liquid.position.y = 0.1;
+          flaskGroup.add(liquid);
+          
+          // Position the flask on the table
+          flaskGroup.position.set(
+            Math.random() * 2 - 1,
+            1.0,
+            -3 + Math.random() * 0.6 - 0.3
+          );
+          
+          laboratory.add(flaskGroup);
+          objects.push(flaskGroup);
+        };
+        
+        const addMicroscope = () => {
+          const microscopeGroup = new THREE.Group();
+          
+          // Base
+          const baseGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.6);
+          const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+          const base = new THREE.Mesh(baseGeometry, baseMaterial);
+          microscopeGroup.add(base);
+          
+          // Arm
+          const armGeometry = new THREE.BoxGeometry(0.1, 0.6, 0.1);
+          const armMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+          const arm = new THREE.Mesh(armGeometry, armMaterial);
+          arm.position.set(0, 0.3, -0.2);
+          microscopeGroup.add(arm);
+          
+          // Head
+          const headGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 32);
+          const headMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+          const head = new THREE.Mesh(headGeometry, headMaterial);
+          head.position.set(0, 0.5, -0.2);
+          head.rotation.x = Math.PI / 2;
+          microscopeGroup.add(head);
+          
+          // Objective lenses
+          const lensGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.15, 32);
+          const lensMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+          
+          const lens1 = new THREE.Mesh(lensGeometry, lensMaterial);
+          lens1.position.set(0, 0.3, -0.1);
+          lens1.rotation.x = Math.PI / 2;
+          microscopeGroup.add(lens1);
+          
+          // Position microscope on the table
+          microscopeGroup.position.set(
+            Math.random() * 3 - 1.5,
+            1.0,
+            -3 + Math.random()
+          );
+          
+          laboratory.add(microscopeGroup);
+          objects.push(microscopeGroup);
+        };
+        
+        const clearObjects = () => {
+          objects.forEach(obj => {
+            laboratory.remove(obj);
+          });
+          objects = [];
+        };
+        
+        const onWindowResize = () => {
+          if (vrMode.value) {
+            camera.aspect = window.innerWidth / 2 / window.innerHeight;
+          } else {
+            camera.aspect = window.innerWidth / window.innerHeight;
+          }
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        
+        const animate = () => {
+          requestAnimationFrame(animate);
+          
+          // Apply device orientation rotation to camera
+          camera.rotation.x = THREE.MathUtils.degToRad(orientationData.value.beta - 90);
+          camera.rotation.y = THREE.MathUtils.degToRad(-orientationData.value.gamma);
+          camera.rotation.z = THREE.MathUtils.degToRad(-orientationData.value.alpha);
+          
+          if (vrMode.value) {
+            // Left eye
+            renderer.setScissor(0, 0, window.innerWidth / 2, window.innerHeight);
+            renderer.setViewport(0, 0, window.innerWidth / 2, window.innerHeight);
+            renderer.render(scene, camera);
+            
+            // Right eye
+            renderer.setScissor(window.innerWidth / 2, 0, window.innerWidth / 2, window.innerHeight);
+            renderer.setViewport(window.innerWidth / 2, 0, window.innerWidth / 2, window.innerHeight);
+            renderer.render(scene, camera);
+          } else {
+            renderer.render(scene, camera);
+          }
+        };
+        
+        const handleDeviceOrientation = (event) => {
+          orientationData.value = {
+            alpha: event.alpha || 0,  // Z-axis (0-360)
+            beta: event.beta || 0,    // X-axis (-180 to 180)
+            gamma: event.gamma || 0   // Y-axis (-90 to 90)
+          };
+          
+          // Determine the direction the user is looking
+          const beta = orientationData.value.beta;
+          const gamma = orientationData.value.gamma;
+          
+          if (beta > 60) {
+            lookingDirection.value = 'Down';
+          } else if (beta < 30) {
+            lookingDirection.value = 'Up';
+          } else if (gamma > 30) {
+            lookingDirection.value = 'Right';
+          } else if (gamma < -30) {
+            lookingDirection.value = 'Left';
+          } else {
+            lookingDirection.value = 'Forward';
+          }
+        };
+        
+        const requestDeviceOrientationPermission = () => {
+          if (typeof DeviceOrientationEvent !== 'undefined' && 
+              typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // iOS 13+ requires permission
+            DeviceOrientationEvent.requestPermission()
+              .then(permissionState => {
+                if (permissionState === 'granted') {
+                  window.addEventListener('deviceorientation', handleDeviceOrientation);
+                }
+              })
+              .catch(console.error);
+          } else {
+            // Handle regular non-iOS 13+ devices
+            window.addEventListener('deviceorientation', handleDeviceOrientation);
+          }
+        };
+        
+        onMounted(() => {
+          initThreeJS();
+          
+          // Request permission for device orientation
+          document.addEventListener('click', () => {
+            requestDeviceOrientationPermission();
+          }, { once: true });
+        });
+        
+        return {
+          showControls,
+          vrMode,
+          orientationData,
+          lookingDirection,
+          toggleVRMode,
+          addTestTube,
+          addFlask,
+          addMicroscope,
+          clearObjects
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
