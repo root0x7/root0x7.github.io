@@ -232,6 +232,14 @@
       font-size: 12px;
       color: #777;
     }
+
+    .user-marker {
+      background-color: blue;
+      border-radius: 50%;
+      border: 2px solid white;
+      width: 15px;
+      height: 15px;
+    }
   </style>
 </head>
 <body>
@@ -244,20 +252,14 @@
       <div id="map"></div>
       
       <div class="dashboard">
-        <p class="speed">Tezlik: {{ currentSpeed }} km/soat</p>
-        <p>Joylashuv: {{ location.lat.toFixed(6) }}, {{ location.lng.toFixed(6) }}</p>
-        <p>Aniqlangan belgilar: {{ detectionCount }}</p>
+        <p class="speed">Tezlik: <span id="current-speed">0</span> km/soat</p>
+        <p>Joylashuv: <span id="current-location">41.311151, 69.279737</span></p>
+        <p>Aniqlangan belgilar: <span id="detection-count">0</span></p>
       </div>
       
-      <div class="detection-history">
+      <div class="detection-history" id="detection-history">
         <h3>So'nggi aniqlanganlar:</h3>
-        <div v-for="(item, index) in detectionHistory" :key="index" class="history-item">
-          <img :src="item.sign.image" :alt="item.sign.name">
-          <div>
-            <div>{{ item.sign.name }}</div>
-            <div class="time">{{ item.time }}</div>
-          </div>
-        </div>
+        <div id="history-items"></div>
       </div>
       
       <div id="video-container">
@@ -266,603 +268,599 @@
       </div>
       
       <div class="controls">
-        <button @click="toggleCamera" :disabled="!cameraAvailable">
-          {{ isCameraOn ? 'Kamerani o\'chirish' : 'Kamerani yoqish' }}
-        </button>
-        <button @click="toggleMap">
-          {{ showMap ? 'Kamerani to\'liq ekranda ko\'rsatish' : 'Xaritani ko\'rsatish' }}
-        </button>
+        <button id="camera-toggle">Kamerani yoqish</button>
+        <button id="map-toggle">Kamerani to'liq ekranda ko'rsatish</button>
       </div>
       
       <div class="alert-box" id="alert-box"></div>
       
       <div class="sign-details" id="sign-details">
-        <button class="close-btn" @click="closeSignDetails">&times;</button>
-        <img :src="currentSign.image" :alt="currentSign.name" v-if="currentSign">
-        <h3>{{ currentSign.name }}</h3>
-        <p>{{ currentSign.description }}</p>
-        <p><strong>Kategoriya:</strong> {{ currentSign.category }}</p>
-        <p><strong>Maslahat:</strong> {{ currentSign.advice }}</p>
+        <button class="close-btn" id="close-details">&times;</button>
+        <img id="sign-image" src="" alt="">
+        <h3 id="sign-name"></h3>
+        <p id="sign-description"></p>
+        <p><strong>Kategoriya:</strong> <span id="sign-category"></span></p>
+        <p><strong>Maslahat:</strong> <span id="sign-advice"></span></p>
       </div>
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   
   <script>
-    const { createApp, ref, computed, onMounted, watch } = Vue;
+    // Global variables
+    let map = null;
+    let userMarker = null;
+    let videoTrack = null;
+    let animationFrame = null;
+    let lastProcessedTime = 0;
+    let movementInterval = null;
+    let isCameraOn = false;
+    let cameraAvailable = true;
+    let showMap = true;
+    let currentSpeed = 0;
+    let location = { lat: 41.311151, lng: 69.279737 };
+    let detectionCount = 0;
+    let detectionHistory = [];
+    let currentSign = null;
+    
+    // Traffic signs data
+    const trafficSigns = [
+      {
+        id: 1,
+        name: "To'xtash man etiladi",
+        description: "Transportning to'xtashi taqiqlangan joy",
+        image: "/api/placeholder/50/50",
+        category: "Taqiqlovchi belgilar",
+        advice: "Bu joyda to'xtamang, jarimaga tortilishingiz mumkin.",
+        modelClass: "stop-prohibited"
+      },
+      {
+        id: 2,
+        name: "Kirish taqiqlanadi",
+        description: "Barcha transport vositalari uchun kirish taqiqlangan",
+        image: "/api/placeholder/50/50",
+        category: "Taqiqlovchi belgilar",
+        advice: "Bu yo'lga kirishingiz mumkin emas, boshqa yo'lni tanlang.",
+        modelClass: "no-entry"
+      },
+      {
+        id: 3,
+        name: "Piyodalar o'tish joyi",
+        description: "Piyodalar o'tish joyi belgilanadi",
+        image: "/api/placeholder/50/50",
+        category: "Axborot-ko'rsatkich belgilar",
+        advice: "Piyodalarga yo'l bering va sekinlang.",
+        modelClass: "pedestrian-crossing"
+      },
+      {
+        id: 4,
+        name: "Asosiy yo'l",
+        description: "Kesishuvchi yo'llarga nisbatan afzallikka ega bo'lgan yo'l",
+        image: "/api/placeholder/50/50",
+        category: "Ustuvorlik belgilari",
+        advice: "Siz asosiy yo'ldasiz, boshqa yo'llardan kelayotgan transportlar sizga yo'l berishi kerak.",
+        modelClass: "main-road"
+      },
+      {
+        id: 5,
+        name: "Yo'l berish",
+        description: "Haydovchi kesishayotgan yo'ldagi transport vositalariga yo'l berishi kerak",
+        image: "/api/placeholder/50/50",
+        category: "Ustuvorlik belgilari",
+        advice: "Asosiy yo'ldagi transportlarga yo'l bering.",
+        modelClass: "yield"
+      },
+      {
+        id: 6,
+        name: "Tezlik cheklovi (60)",
+        description: "60 km/soat dan ortiq tezlikda harakatlanish taqiqlanadi",
+        image: "/api/placeholder/50/50",
+        category: "Taqiqlovchi belgilar",
+        advice: "Tezlikni 60 km/soatdan oshirmang.",
+        modelClass: "speed-limit-60"
+      },
+      {
+        id: 7,
+        name: "Svetofor",
+        description: "Oldinda svetofor bor",
+        image: "/api/placeholder/50/50",
+        category: "Ogohlantiruvchi belgilar",
+        advice: "Oldindagi svetoforga tayyorlaning.",
+        modelClass: "traffic-light-ahead"
+      },
+      {
+        id: 8,
+        name: "To'xtash joyi",
+        description: "Transport vositalarini to'xtatish va turish joyi",
+        image: "/api/placeholder/50/50",
+        category: "Axborot-ko'rsatkich belgilar",
+        advice: "Bu joyda to'xtashingiz va turishingiz mumkin.",
+        modelClass: "parking"
+      },
+      {
+        id: 9,
+        name: "Bolalar",
+        description: "Yo'l yaqinida bolalar muassasasi bor",
+        image: "/api/placeholder/50/50",
+        category: "Ogohlantiruvchi belgilar",
+        advice: "Sekinlang, yo'lda bolalar bo'lishi mumkin.",
+        modelClass: "children"
+      },
+      {
+        id: 10,
+        name: "Bir tomonlama yo'l",
+        description: "Bir tomonlama harakatli yo'l",
+        image: "/api/placeholder/50/50",
+        category: "Axborot-ko'rsatkich belgilar",
+        advice: "Yo'lda faqat ko'rsatilgan yo'nalishda harakatlanish mumkin.",
+        modelClass: "one-way"
+      }
+    ];
+    
+    // Intersections data
+    const intersections = [
+      {
+        id: 1,
+        name: "Amir Temur va Shaxrisabz ko'chalari chorrahasi",
+        position: { lat: 41.311023, lng: 69.280514 }
+      },
+      {
+        id: 2,
+        name: "Mustaqillik va Bunyodkor ko'chalari chorrahasi",
+        position: { lat: 41.313456, lng: 69.278969 }
+      },
+      {
+        id: 3,
+        name: "Navoiy va Furqat ko'chalari chorrahasi",
+        position: { lat: 41.309245, lng: 69.283218 }
+      }
+    ];
+    
+    // Virtual traffic sign locations
+    const virtualSignLocations = [
+      {
+        position: { lat: 41.311151, lng: 69.279737 },
+        signId: 1,
+        triggerDistance: 50 // meters
+      },
+      {
+        position: { lat: 41.312781, lng: 69.281582 },
+        signId: 2,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.310521, lng: 69.280664 },
+        signId: 3,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.309876, lng: 69.282795 },
+        signId: 4,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.308654, lng: 69.283867 },
+        signId: 5,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.313542, lng: 69.279008 },
+        signId: 6,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.314267, lng: 69.280553 },
+        signId: 7,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.311879, lng: 69.284318 },
+        signId: 8,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.310090, lng: 69.277843 },
+        signId: 9,
+        triggerDistance: 50
+      },
+      {
+        position: { lat: 41.307932, lng: 69.280062 },
+        signId: 10,
+        triggerDistance: 50
+      }
+    ];
+    
+    // DOM elements
+    const cameraToggleBtn = document.getElementById('camera-toggle');
+    const mapToggleBtn = document.getElementById('map-toggle');
+    const closeDetailsBtn = document.getElementById('close-details');
+    
+    // Calculate distance between two points (haversine formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth radius in meters
+      const φ1 = lat1 * Math.PI/180;
+      const φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180;
+      const Δλ = (lon2-lon1) * Math.PI/180;
 
-    const app = createApp({
-      setup() {
-        // Dastur holatlari
-        const isCameraOn = ref(false);
-        const cameraAvailable = ref(true);
-        const showMap = ref(true);
-        const currentSpeed = ref(0);
-        const location = ref({ lat: 41.311151, lng: 69.279737 });
-        const detectionCount = ref(0);
-        const detectionHistory = ref([]);
-        const currentSign = ref(null);
-        
-        let map = null;
-        let userMarker = null;
-        let videoTrack = null;
-        let animationFrame = null;
-        let lastProcessedTime = 0;
-        
-        // Yo'l belgilari ma'lumotlari
-        const trafficSigns = [
-          {
-            id: 1,
-            name: "To'xtash man etiladi",
-            description: "Transportning to'xtashi taqiqlangan joy",
-            image: "/api/placeholder/50/50",
-            category: "Taqiqlovchi belgilar",
-            advice: "Bu joyda to'xtamang, jarimaga tortilishingiz mumkin.",
-            modelClass: "stop-prohibited"
-          },
-          {
-            id: 2,
-            name: "Kirish taqiqlanadi",
-            description: "Barcha transport vositalari uchun kirish taqiqlangan",
-            image: "/api/placeholder/50/50",
-            category: "Taqiqlovchi belgilar",
-            advice: "Bu yo'lga kirishingiz mumkin emas, boshqa yo'lni tanlang.",
-            modelClass: "no-entry"
-          },
-          {
-            id: 3,
-            name: "Piyodalar o'tish joyi",
-            description: "Piyodalar o'tish joyi belgilanadi",
-            image: "/api/placeholder/50/50",
-            category: "Axborot-ko'rsatkich belgilar",
-            advice: "Piyodalarga yo'l bering va sekinlang.",
-            modelClass: "pedestrian-crossing"
-          },
-          {
-            id: 4,
-            name: "Asosiy yo'l",
-            description: "Kesishuvchi yo'llarga nisbatan afzallikka ega bo'lgan yo'l",
-            image: "/api/placeholder/50/50",
-            category: "Ustuvorlik belgilari",
-            advice: "Siz asosiy yo'ldasiz, boshqa yo'llardan kelayotgan transportlar sizga yo'l berishi kerak.",
-            modelClass: "main-road"
-          },
-          {
-            id: 5,
-            name: "Yo'l berish",
-            description: "Haydovchi kesishayotgan yo'ldagi transport vositalariga yo'l berishi kerak",
-            image: "/api/placeholder/50/50",
-            category: "Ustuvorlik belgilari",
-            advice: "Asosiy yo'ldagi transportlarga yo'l bering.",
-            modelClass: "yield"
-          },
-          {
-            id: 6,
-            name: "Tezlik cheklovi (60)",
-            description: "60 km/soat dan ortiq tezlikda harakatlanish taqiqlanadi",
-            image: "/api/placeholder/50/50",
-            category: "Taqiqlovchi belgilar",
-            advice: "Tezlikni 60 km/soatdan oshirmang.",
-            modelClass: "speed-limit-60"
-          },
-          {
-            id: 7,
-            name: "Svetofor",
-            description: "Oldinda svetofor bor",
-            image: "/api/placeholder/50/50",
-            category: "Ogohlantiruvchi belgilar",
-            advice: "Oldindagi svetoforga tayyorlaning.",
-            modelClass: "traffic-light-ahead"
-          },
-          {
-            id: 8,
-            name: "To'xtash joyi",
-            description: "Transport vositalarini to'xtatish va turish joyi",
-            image: "/api/placeholder/50/50",
-            category: "Axborot-ko'rsatkich belgilar",
-            advice: "Bu joyda to'xtashingiz va turishingiz mumkin.",
-            modelClass: "parking"
-          },
-          {
-            id: 9,
-            name: "Bolalar",
-            description: "Yo'l yaqinida bolalar muassasasi bor",
-            image: "/api/placeholder/50/50",
-            category: "Ogohlantiruvchi belgilar",
-            advice: "Sekinlang, yo'lda bolalar bo'lishi mumkin.",
-            modelClass: "children"
-          },
-          {
-            id: 10,
-            name: "Bir tomonlama yo'l",
-            description: "Bir tomonlama harakatli yo'l",
-            image: "/api/placeholder/50/50",
-            category: "Axborot-ko'rsatkich belgilar",
-            advice: "Yo'lda faqat ko'rsatilgan yo'nalishda harakatlanish mumkin.",
-            modelClass: "one-way"
-          }
-        ];
-        
-        // Chorrahalar ma'lumotlari
-        const intersections = [
-          {
-            id: 1,
-            name: "Amir Temur va Shaxrisabz ko'chalari chorrahasi",
-            position: { lat: 41.311023, lng: 69.280514 }
-          },
-          {
-            id: 2,
-            name: "Mustaqillik va Bunyodkor ko'chalari chorrahasi",
-            position: { lat: 41.313456, lng: 69.278969 }
-          },
-          {
-            id: 3,
-            name: "Navoiy va Furqat ko'chalari chorrahasi",
-            position: { lat: 41.309245, lng: 69.283218 }
-          }
-        ];
-        
-        // Yo'l belgilarining virtual joylashuvi, yo'lda ketayotganda aniqlash uchun
-        const virtualSignLocations = [
-          {
-            position: { lat: 41.311151, lng: 69.279737 },
-            signId: 1,
-            triggerDistance: 50 // metrda
-          },
-          {
-            position: { lat: 41.312781, lng: 69.281582 },
-            signId: 2,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.310521, lng: 69.280664 },
-            signId: 3,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.309876, lng: 69.282795 },
-            signId: 4,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.308654, lng: 69.283867 },
-            signId: 5,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.313542, lng: 69.279008 },
-            signId: 6,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.314267, lng: 69.280553 },
-            signId: 7,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.311879, lng: 69.284318 },
-            signId: 8,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.310090, lng: 69.277843 },
-            signId: 9,
-            triggerDistance: 50
-          },
-          {
-            position: { lat: 41.307932, lng: 69.280062 },
-            signId: 10,
-            triggerDistance: 50
-          }
-        ];
-        
-        // Ikki nuqta orasidagi masofani hisoblash (haversine formulasi)
-        const calculateDistance = (lat1, lon1, lat2, lon2) => {
-          const R = 6371e3; // Yer radiusi, metrda
-          const φ1 = lat1 * Math.PI/180;
-          const φ2 = lat2 * Math.PI/180;
-          const Δφ = (lat2-lat1) * Math.PI/180;
-          const Δλ = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-          const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-          return R * c; // metrda
-        };
+      return R * c; // in meters
+    }
+    
+    // Toggle camera
+    function toggleCamera() {
+      if (isCameraOn) {
+        stopCamera();
+      } else {
+        startCamera();
+      }
+    }
+    
+    // Start camera
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
         
-        // Kamerani yoqish/o'chirish
-        const toggleCamera = async () => {
-          if (isCameraOn.value) {
-            stopCamera();
-          } else {
-            startCamera();
-          }
-        };
+        document.getElementById('camera-feed').srcObject = stream;
+        videoTrack = stream.getVideoTracks()[0];
+        isCameraOn = true;
+        cameraToggleBtn.textContent = "Kamerani o'chirish";
         
-        // Kamerani yoqish
-        const startCamera = async () => {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: "environment" }
-            });
-            
-            document.getElementById('camera-feed').srcObject = stream;
-            videoTrack = stream.getVideoTracks()[0];
-            isCameraOn.value = true;
-            
-            // Kamera ishga tushgandan so'ng belgi tanishni boshlash
-            startSignDetection();
-            
-          } catch (err) {
-            console.error("Kamera ishga tushmadi:", err);
-            cameraAvailable.value = false;
-            alert("Kameraga ruxsat berilmadi yoki kamera mavjud emas!");
-          }
-        };
+        // Start sign detection after camera is initialized
+        startSignDetection();
         
-        // Kamerani o'chirish
-        const stopCamera = () => {
-          if (videoTrack) {
-            videoTrack.stop();
-            videoTrack = null;
-          }
+      } catch (err) {
+        console.error("Camera initialization failed:", err);
+        cameraAvailable = false;
+        alert("Kameraga ruxsat berilmadi yoki kamera mavjud emas!");
+        cameraToggleBtn.disabled = true;
+      }
+    }
+    
+    // Stop camera
+    function stopCamera() {
+      if (videoTrack) {
+        videoTrack.stop();
+        videoTrack = null;
+      }
+      
+      document.getElementById('camera-feed').srcObject = null;
+      isCameraOn = false;
+      cameraToggleBtn.textContent = "Kamerani yoqish";
+      
+      // Stop sign detection
+      stopSignDetection();
+    }
+    
+    // Toggle map view
+    function toggleMap() {
+      showMap = !showMap;
+      
+      if (showMap) {
+        document.getElementById('map').style.display = 'block';
+        document.getElementById('video-container').style.height = '40%';
+        mapToggleBtn.textContent = "Kamerani to'liq ekranda ko'rsatish";
+      } else {
+        document.getElementById('map').style.display = 'none';
+        document.getElementById('video-container').style.height = '100%';
+        mapToggleBtn.textContent = "Xaritani ko'rsatish";
+      }
+    }
+    
+    // Start sign detection
+    function startSignDetection() {
+      detectSigns();
+    }
+    
+    // Stop sign detection
+    function stopSignDetection() {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+    }
+    
+    // Detect traffic signs (simulation)
+    function detectSigns() {
+      const now = Date.now();
+      
+      // Update every 100ms
+      if (now - lastProcessedTime > 100) {
+        const overlay = document.getElementById('detection-overlay');
+        overlay.innerHTML = '';
+        
+        // Check virtual signs based on location
+        virtualSignLocations.forEach(virtualSign => {
+          const distance = calculateDistance(
+            location.lat,
+            location.lng,
+            virtualSign.position.lat,
+            virtualSign.position.lng
+          );
           
-          document.getElementById('camera-feed').srcObject = null;
-          isCameraOn.value = false;
-          
-          // Belgi tanishni to'xtatish
-          stopSignDetection();
-        };
-        
-        // Xarita ko'rinishini almashtirish
-        const toggleMap = () => {
-          showMap.value = !showMap.value;
-          
-          if (showMap.value) {
-            document.getElementById('map').style.display = 'block';
-            document.getElementById('video-container').style.height = '40%';
-          } else {
-            document.getElementById('map').style.display = 'none';
-            document.getElementById('video-container').style.height = '100%';
-          }
-        };
-        
-        // Belgi tanishni boshlash
-        const startSignDetection = () => {
-          detectSigns();
-        };
-        
-        // Belgi tanishni to'xtatish
-        const stopSignDetection = () => {
-          if (animationFrame) {
-            cancelAnimationFrame(animationFrame);
-            animationFrame = null;
-          }
-        };
-        
-        // Tasvirdagi belgilarni aniqlash (simulation)
-        const detectSigns = () => {
-          const now = Date.now();
-          
-          // Har 100ms da yangilanadi
-          if (now - lastProcessedTime > 100) {
-            const overlay = document.getElementById('detection-overlay');
-            overlay.innerHTML = '';
-            
-            // Joylashuvga qarab virtual belgilarni tekshirish
-            virtualSignLocations.forEach(virtualSign => {
-              const distance = calculateDistance(
-                location.value.lat,
-                location.value.lng,
-                virtualSign.position.lat,
-                virtualSign.position.lng
+          // If close to a sign (less than trigger distance)
+          if (distance < virtualSign.triggerDistance) {
+            const sign = trafficSigns.find(s => s.id === virtualSign.signId);
+            if (sign) {
+              // Random position for simulation
+              const randomLeft = Math.floor(Math.random() * 60) + 20;
+              const randomTop = Math.floor(Math.random() * 40) + 10;
+              const randomWidth = Math.floor(Math.random() * 30) + 50;
+              const randomHeight = Math.floor(Math.random() * 30) + 50;
+              
+              // Show detected sign on screen
+              const detectionBox = document.createElement('div');
+              detectionBox.className = 'detection-box';
+              detectionBox.style.left = `${randomLeft}%`;
+              detectionBox.style.top = `${randomTop}%`;
+              detectionBox.style.width = `${randomWidth}px`;
+              detectionBox.style.height = `${randomHeight}px`;
+              
+              const detectionLabel = document.createElement('div');
+              detectionLabel.className = 'detection-label';
+              detectionLabel.textContent = sign.name;
+              
+              detectionBox.appendChild(detectionLabel);
+              overlay.appendChild(detectionBox);
+              
+              // Only add sign once in a 5-second period
+              const alreadyDetected = detectionHistory.some(
+                item => item.sign.id === sign.id && 
+                (now - item.timestamp) < 5000
               );
               
-              // Agar belgi yaqinida bo'lsa (20m dan kam)
-              if (distance < virtualSign.triggerDistance) {
-                const sign = trafficSigns.find(s => s.id === virtualSign.signId);
-                if (sign) {
-                  // Simulatsiya qilish uchun tasodifiy joy
-                  const randomLeft = Math.floor(Math.random() * 60) + 20;
-                  const randomTop = Math.floor(Math.random() * 40) + 10;
-                  const randomWidth = Math.floor(Math.random() * 30) + 50;
-                  const randomHeight = Math.floor(Math.random() * 30) + 50;
-                  
-                  // Aniqlangan belgini ekranda ko'rsatish
-                  const detectionBox = document.createElement('div');
-                  detectionBox.className = 'detection-box';
-                  detectionBox.style.left = `${randomLeft}%`;
-                  detectionBox.style.top = `${randomTop}%`;
-                  detectionBox.style.width = `${randomWidth}px`;
-                  detectionBox.style.height = `${randomHeight}px`;
-                  
-                  const detectionLabel = document.createElement('div');
-                  detectionLabel.className = 'detection-label';
-                  detectionLabel.textContent = sign.name;
-                  
-                  detectionBox.appendChild(detectionLabel);
-                  overlay.appendChild(detectionBox);
-                  
-                  // Belgini faqat bir marta qo'shish uchun
-                  const alreadyDetected = detectionHistory.value.some(
-                    item => item.sign.id === sign.id && 
-                    (now - item.timestamp) < 5000 // 5 soniyadan kamroq vaqt o'tgan bo'lsa
-                  );
-                  
-                  if (!alreadyDetected) {
-                    // Ogohlantirish ko'rsatish
-                    showAlert(sign.name);
-                    
-                    // Aniqlanganlar ro'yxatiga qo'shish
-                    addToDetectionHistory(sign);
-                    
-                    // Detektorni yangilash
-                    detectionCount.value++;
-                    
-                    // Belgini to'liq ko'rsatish
-                    showSignDetails(sign);
-                    
-                    // Tezlikni tekshirish (masalan, tezlik cheklovi belgisi uchun)
-                    if (sign.id === 6 && currentSpeed.value > 60) {
-                      showAlert("DIQQAT! Tezlik chegarasidan oshib ketdingiz!");
-                    }
-                  }
+              if (!alreadyDetected) {
+                // Show alert
+                showAlert(sign.name);
+                
+                // Add to detection history
+                addToDetectionHistory(sign);
+                
+                // Update counter
+                detectionCount++;
+                document.getElementById('detection-count').textContent = detectionCount;
+                
+                // Show sign details
+                showSignDetails(sign);
+                
+                // Check speed (for speed limit sign)
+                if (sign.id === 6 && currentSpeed > 60) {
+                  showAlert("DIQQAT! Tezlik chegarasidan oshib ketdingiz!");
                 }
               }
-            });
-            
-            lastProcessedTime = now;
-          }
-          
-          animationFrame = requestAnimationFrame(detectSigns);
-        };
-        
-        // Aniqlanganlar ro'yxatiga qo'shish
-        const addToDetectionHistory = (sign) => {
-          const now = new Date();
-          const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-          
-          detectionHistory.value.unshift({
-            sign: sign,
-            time: timeString,
-            timestamp: Date.now()
-          });
-          
-          // Faqat oxirgi 10 ta
-          if (detectionHistory.value.length > 10) {
-            detectionHistory.value.pop();
-          }
-        };
-        
-        // Ogohlantirish ko'rsatish
-        const showAlert = (message) => {
-          const alertBox = document.getElementById('alert-box');
-          alertBox.textContent = message;
-          alertBox.style.display = 'block';
-          
-          // 3 soniyadan keyin yopish
-          setTimeout(() => {
-            alertBox.style.display = 'none';
-          }, 3000);
-        };
-        
-        // Belgi haqida batafsil ma'lumot ko'rsatish
-        const showSignDetails = (sign) => {
-          currentSign.value = sign;
-          document.getElementById('sign-details').style.display = 'block';
-          
-          // 5 soniyadan keyin yopish
-          setTimeout(() => {
-            document.getElementById('sign-details').style.display = 'none';
-          }, 5000);
-        };
-        
-        // Belgi ma'lumotini yopish
-        const closeSignDetails = () => {
-          document.getElementById('sign-details').style.display = 'none';
-        };
-        
-        // Joriy joylashuvni yangilash
-        const updateLocation = () => {
-          if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-              (position) => {
-                location.value = {
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude
-                };
-                
-                // Tezlikni yangilash (agar mavjud bo'lsa)
-                if (position.coords.speed !== null) {
-                  // m/s dan km/soatga o'tkazish
-                  currentSpeed.value = Math.round(position.coords.speed * 3.6);
-                }
-                
-                // Marker joylashuvini yangilash
-                updateUserMarker();
-                
-                // Xaritani markazlashtirish
-                if (map) {
-                  map.setView([location.value.lat, location.value.lng], 17);
-                }
-                
-              },
-              (error) => {
-                console.error("Geolokatsiya xatosi:", error);
-                // Simulyatsiya uchun tasodifiy harakat
-                simulateMovement();
-              },
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-            );
-          } else {
-            console.error("Geolokatsiya qo'llab-quvvatlanmaydi");
-            // Simulyatsiya uchun tasodifiy harakat
-            simulateMovement();
-          }
-        };
-        
-        // Foydalanuvchi markerini yangilash
-        const updateUserMarker = () => {
-          if (map) {
-            if (userMarker) {
-              userMarker.setLatLng([location.value.lat, location.value.lng]);
-            } else {
-              userMarker = L.marker([location.value.lat, location.value.lng], {
-                icon: L.divIcon({
-                  className: 'user-marker',
-                  html: '<div style="background-color: blue; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>',
-                  iconSize: [15, 15]
-                })
-              }).addTo(map);
             }
-          }
-        };
-        
-        // Simulyatsiya uchun tasodifiy harakat
-        let movementInterval = null;
-        const simulateMovement = () => {
-          // Mavjud simulyatsiyani to'xtatish
-          if (movementInterval) {
-            clearInterval(movementInterval);
-          }
-          
-          // Har 2 soniyada yangilanadi
-          movementInterval = setInterval(() => {
-            // Tasodifiy yo'nalishda harakatlanish
-            const latChange = (Math.random() - 0.5) * 0.0005;
-            const lngChange = (Math.random() - 0.5) * 0.0005;
-            
-            location.value = {
-              lat: location.value.lat + latChange,
-              lng: location.value.lng + lngChange
-            };
-            
-            // Tasodifiy tezlik (10-80 km/soat)
-            currentSpeed.value = Math.floor(Math.random() * 70) + 10;
-            
-            // Marker joylashuvini yangilash
-            updateUserMarker();
-            
-            // Xaritani markazlashtirish
-            if (map) {
-              map.setView([location.value.lat, location.value.lng], 17);
-            }
-          }, 2000);
-        };
-        
-        // Dastur ishga tushgandan so'ng
-        onMounted(() => {
-          // Xaritani yaratish
-          map = L.map('map').setView([location.value.lat, location.value.lng], 15);
-          
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }).addTo(map);
-          
-          // Yo'l belgilarini xaritada ko'rsatish
-          trafficSigns.forEach(sign => {
-            const virtualLocation = virtualSignLocations.find(loc => loc.signId === sign.id);
-            if (virtualLocation) {
-              const signMarker = L.marker([virtualLocation.position.lat, virtualLocation.position.lng], {
-                icon: L.divIcon({
-                  className: 'sign-marker',
-                  html: `<div style="background-color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid #ff4757; box-shadow: 0 0 5px rgba(0,0,0,0.3);">${sign.id}</div>`,
-                  iconSize: [24, 24]
-                })
-              }).addTo(map);
-              
-              signMarker.bindPopup(`
-                <div style="text-align: center;">
-                  <img src="${sign.image}" style="width: 50px; height: 50px; margin-bottom: 5px;">
-                  <h3>${sign.name}</h3>
-                  <p>${sign.description}</p>
-                </div>
-              `);
-            }
-          });
-          
-          // Chorrahalarni xaritada ko'rsatish
-          intersections.forEach(intersection => {
-            const intersectionMarker = L.circle(
-              [intersection.position.lat, intersection.position.lng],
-              {
-                color: 'red',
-                fillColor: '#f03',
-                fillOpacity: 0.5,
-                radius: 30
-              }
-            ).addTo(map);
-            
-            intersectionMarker.bindPopup(`
-              <div style="text-align: center;">
-                <h3>${intersection.name}</h3>
-                <p>Chorraha</p>
-              </div>
-            `);
-          });
-          
-          // Joriy joylashuvni yangilash
-          updateLocation();
-          
-          // Foydalanuvchi browserda ruxsat berilgan bo'lsa, kamerani avtomatik yoqish
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            startCamera();
-          } else {
-            cameraAvailable.value = false;
-            alert("Ushbu qurilmada kamera mavjud emas yoki kameraga ruxsat berilmagan!");
           }
         });
         
-        // Resurslarni tozalash
-        const onBeforeUnmount = () => {
-          stopCamera();
-          if (movementInterval) {
-            clearInterval(movementInterval);
-          }
+        lastProcessedTime = now;
+      }
+      
+      animationFrame = requestAnimationFrame(detectSigns);
+    }
+    
+    // Add to detection history
+    function addToDetectionHistory(sign) {
+      const now = new Date();
+      const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      detectionHistory.unshift({
+        sign: sign,
+        time: timeString,
+        timestamp: Date.now()
+      });
+      
+      // Keep only the last 10 items
+      if (detectionHistory.length > 10) {
+        detectionHistory.pop();
+      }
+      
+      // Update UI
+      updateDetectionHistoryUI();
+    }
+    
+    // Update detection history UI
+    function updateDetectionHistoryUI() {
+      const historyContainer = document.getElementById('history-items');
+      historyContainer.innerHTML = '';
+      
+      detectionHistory.forEach(item => {
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        
+        historyItem.innerHTML = `
+          <img src="${item.sign.image}" alt="${item.sign.name}">
+          <div>
+            <div>${item.sign.name}</div>
+            <div class="time">${item.time}</div>
+          </div>
+        `;
+        
+        historyContainer.appendChild(historyItem);
+      });
+    }
+    
+    // Show alert
+    function showAlert(message) {
+      const alertBox = document.getElementById('alert-box');
+      alertBox.textContent = message;
+      alertBox.style.display = 'block';
+      
+      // Close after 3 seconds
+      setTimeout(() => {
+        alertBox.style.display = 'none';
+      }, 3000);
+    }
+    
+    // Show sign details
+    function showSignDetails(sign) {
+      currentSign = sign;
+      
+      document.getElementById('sign-image').src = sign.image;
+      document.getElementById('sign-image').alt = sign.name;
+      document.getElementById('sign-name').textContent = sign.name;
+      document.getElementById('sign-description').textContent = sign.description;
+      document.getElementById('sign-category').textContent = sign.category;
+      document.getElementById('sign-advice').textContent = sign.advice;
+      
+      document.getElementById('sign-details').style.display = 'block';
+      
+      // Close after 5 seconds
+      setTimeout(() => {
+        document.getElementById('sign-details').style.display = 'none';
+      }, 5000);
+    }
+    
+    // Close sign details
+    function closeSignDetails() {
+      document.getElementById('sign-details').style.display = 'none';
+    }
+    
+    // Update location
+    function updateLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+          (position) => {
+            location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            
+            // Update speed if available
+            if (position.coords.speed !== null) {
+              // Convert m/s to km/h
+              currentSpeed = Math.round(position.coords.speed * 3.6);
+              document.getElementById('current-speed').textContent = currentSpeed;
+            }
+            
+            // Update location display
+            document.getElementById('current-location').textContent = 
+              `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+            
+            // Update user marker
+            updateUserMarker();
+            
+            // Center map
+            if (map) {
+              map.setView([location.lat, location.lng], 17);
+            }
+            
+          },
+          (error) => {
+            console.error("Geolocation error:", error);
+            // Simulate random movement if geolocation fails
+            simulateMovement();
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        );
+      } else {
+        console.error("Geolocation not supported");
+        // Simulate random movement
+        simulateMovement();
+      }
+    }
+    
+    // Update user marker
+    function updateUserMarker() {
+      if (map) {
+        if (userMarker) {
+          userMarker.setLatLng([location.lat, location.lng]);
+        } else {
+          userMarker = L.marker([location.lat, location.lng], {
+            icon: L.divIcon({
+              className: 'user-marker',
+              iconSize: [15, 15]
+            })
+          }).addTo(map);
+        }
+      }
+    }
+    
+    // Simulate random movement
+    function simulateMovement() {
+      // Stop existing simulation
+      if (movementInterval) {
+        clearInterval(movementInterval);
+      }
+      
+      // Update every 2 seconds
+      movementInterval = setInterval(() => {
+        // Move in a random direction
+        const latChange = (Math.random() - 0.5) * 0.0005;
+        const lngChange = (Math.random() - 0.5) * 0.0005;
+        
+        location = {
+          lat: location.lat + latChange,
+          lng: location.lng + lngChange
         };
         
-        // Komponentani eksport qilish
-        return {
-          isCameraOn,
-          cameraAvailable,
-          showMap,
-          currentSpeed,
-          location,
-          detectionCount,
-          detectionHistory,
-          currentSign,
-          toggleCamera,
-          toggleMap,
-          closeSignDetails
-        };
-      }
-    });
-
-    app.mount('#app');
-  </script>
-</body>
-</html>
+        // Update location display
+        document.getElementById('current-location').textContent = 
+          `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+        
+        // Random speed (10-80 km/h)
+        currentSpeed = Math.floor(Math.random() * 70) + 10;
+        document.getElementById('current-speed').textContent = currentSpeed;
+        
+        // Update user marker
+        updateUserMarker();
+        
+        // Center map
+        if (map) {
+          map.setView([location.lat, location.lng], 17);
+        }
+      }, 2000);
+    }
+    
+    // Initialize map
+    function initMap() {
+      map = L.map('map').setView([location.lat, location.lng], 15);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      
+      // Show traffic signs on map
+      trafficSigns.forEach(sign => {
+        const virtualLocation = virtualSignLocations.find(loc => loc.signId === sign.id);
+        if (virtualLocation) {
+          const signMarker = L.marker([virtualLocation.position.lat, virtualLocation.position.lng], {
+            icon: L.divIcon({
+              className: 'sign-marker',
+              html: `<div style="background-color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid #ff4757; box-shadow: 0 0 5px rgba(0,0,0,0.3);">${sign.id}</div>`,
+              iconSize: [24, 24]
+            })
+          }).addTo(map);
+          
+          signMarker.bindPopup(`
+            <div style="text-align: center;">
+              <img src="${sign.image}" style="width: 50px; height: 50px; margin-bottom: 5px;">
+              <h3>${sign.name}</h3>
+              <p>${sign.description}</p>
+            </div>
+          `);
+        }
+      });
+      
+      // Show intersections on map
+      intersections.forEach(intersection => {
+        const intersectionMarker = L.circle(
+          [intersection.position.lat, intersection.position.lng],
+          {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.5,
+            radius: 30
+          }
+        ).addTo(map);
+        
+        intersectionMarker.bindPopup(`
+          <div style="text-align: center;">
+            <h3>${intersection.name}</h3>
+            <p>Ch
