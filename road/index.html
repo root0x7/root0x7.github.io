@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yo'l belgilari va chorrahalar</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+    }
+    
+    #app {
+      display: flex;
+      height: 100vh;
+    }
+    
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+    
+    .sidebar {
+      width: 300px;
+      background-color: #f8f9fa;
+      padding: 20px;
+      overflow-y: auto;
+      border-right: 1px solid #dee2e6;
+    }
+    
+    .sidebar h1 {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      color: #343a40;
+    }
+    
+    .sign-item {
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .sign-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .sign-item img {
+      width: 50px;
+      height: 50px;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    
+    .sign-description {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-top: 5px;
+    }
+    
+    .sign-category {
+      font-weight: bold;
+      margin: 15px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .search-bar {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+    }
+    
+    .popup-content {
+      text-align: center;
+    }
+    
+    .popup-content img {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="sidebar">
+      <h1>Yo'l belgilari</h1>
+      <input type="text" v-model="search" placeholder="Qidirish..." class="search-bar">
+      
+      <div v-for="(category, categoryName) in groupedSigns" :key="categoryName">
+        <h2 class="sign-category">{{ categoryName }}</h2>
+        <div 
+          v-for="sign in category" 
+          :key="sign.id" 
+          class="sign-item"
+          @click="showSignOnMap(sign)">
+          <img :src="sign.image" :alt="sign.name">
+          <span>{{ sign.name }}</span>
+          <div class="sign-description">{{ sign.description }}</div>
+        </div>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    const app = createApp({
+      setup() {
+        // Yo'l belgilari ma'lumotlari
+        const trafficSigns = ref([
+          {
+            id: 1,
+            name: "To'xtash man etiladi",
+            description: "Transportning to'xtashi taqiqlangan joy",
+            image: "/api/placeholder/50/50",
+            category: "Taqiqlovchi belgilar",
+            position: { lat: 41.311151, lng: 69.279737 }
+          },
+          {
+            id: 2,
+            name: "Kirish taqiqlanadi",
+            description: "Barcha transport vositalari uchun kirish taqiqlangan",
+            image: "/api/placeholder/50/50",
+            category: "Taqiqlovchi belgilar",
+            position: { lat: 41.312781, lng: 69.281582 }
+          },
+          {
+            id: 3,
+            name: "Piyodalar o'tish joyi",
+            description: "Piyodalar o'tish joyi belgilanadi",
+            image: "/api/placeholder/50/50",
+            category: "Axborot-ko'rsatkich belgilar",
+            position: { lat: 41.310521, lng: 69.280664 }
+          },
+          {
+            id: 4,
+            name: "Asosiy yo'l",
+            description: "Kesishuvchi yo'llarga nisbatan afzallikka ega bo'lgan yo'l",
+            image: "/api/placeholder/50/50",
+            category: "Ustuvorlik belgilari",
+            position: { lat: 41.309876, lng: 69.282795 }
+          },
+          {
+            id: 5,
+            name: "Yo'l berish",
+            description: "Haydovchi kesishayotgan yo'ldagi transport vositalariga yo'l berishi kerak",
+            image: "/api/placeholder/50/50",
+            category: "Ustuvorlik belgilari",
+            position: { lat: 41.308654, lng: 69.283867 }
+          },
+          {
+            id: 6,
+            name: "Tezlik cheklovi (60)",
+            description: "60 km/soat dan ortiq tezlikda harakatlanish taqiqlanadi",
+            image: "/api/placeholder/50/50",
+            category: "Taqiqlovchi belgilar",
+            position: { lat: 41.313542, lng: 69.279008 }
+          },
+          {
+            id: 7,
+            name: "Svetofor",
+            description: "Oldinda svetofor bor",
+            image: "/api/placeholder/50/50",
+            category: "Ogohlantiruvchi belgilar",
+            position: { lat: 41.314267, lng: 69.280553 }
+          },
+          {
+            id: 8,
+            name: "To'xtash joyi",
+            description: "Transport vositalarini to'xtatish va turish joyi",
+            image: "/api/placeholder/50/50",
+            category: "Axborot-ko'rsatkich belgilar",
+            position: { lat: 41.311879, lng: 69.284318 }
+          },
+          {
+            id: 9,
+            name: "Bolalar",
+            description: "Yo'l yaqinida bolalar muassasasi bor",
+            image: "/api/placeholder/50/50",
+            category: "Ogohlantiruvchi belgilar",
+            position: { lat: 41.310090, lng: 69.277843 }
+          },
+          {
+            id: 10,
+            name: "Bir tomonlama yo'l",
+            description: "Bir tomonlama harakatli yo'l",
+            image: "/api/placeholder/50/50",
+            category: "Axborot-ko'rsatkich belgilar",
+            position: { lat: 41.307932, lng: 69.280062 }
+          }
+        ]);
+
+        // Chorrahalar ma'lumotlari
+        const intersections = ref([
+          {
+            id: 1,
+            name: "Amir Temur va Shaxrisabz ko'chalari chorrahasi",
+            position: { lat: 41.311023, lng: 69.280514 }
+          },
+          {
+            id: 2,
+            name: "Mustaqillik va Bunyodkor ko'chalari chorrahasi",
+            position: { lat: 41.313456, lng: 69.278969 }
+          },
+          {
+            id: 3,
+            name: "Navoiy va Furqat ko'chalari chorrahasi",
+            position: { lat: 41.309245, lng: 69.283218 }
+          }
+        ]);
+
+        const search = ref('');
+        let map = null;
+        let markers = [];
+
+        // Qidiruv natijalariga asosan belgilarni filtrlash
+        const filteredSigns = computed(() => {
+          if (!search.value) return trafficSigns.value;
+          const searchTerm = search.value.toLowerCase();
+          return trafficSigns.value.filter(sign => 
+            sign.name.toLowerCase().includes(searchTerm) || 
+            sign.description.toLowerCase().includes(searchTerm) ||
+            sign.category.toLowerCase().includes(searchTerm)
+          );
+        });
+
+        // Belgilarni kategoriyalar bo'yicha guruhlash
+        const groupedSigns = computed(() => {
+          const result = {};
+          filteredSigns.value.forEach(sign => {
+            if (!result[sign.category]) {
+              result[sign.category] = [];
+            }
+            result[sign.category].push(sign);
+          });
+          return result;
+        });
+
+        // Markerlarni tozalash funksiyasi
+        const clearMarkers = () => {
+          markers.forEach(marker => map.removeLayer(marker));
+          markers = [];
+        };
+
+        // Barcha belgilarni xaritada ko'rsatish
+        const showAllSigns = () => {
+          clearMarkers();
+          
+          // Yo'l belgilari markerlarini qo'shish
+          trafficSigns.value.forEach(sign => {
+            const marker = L.marker([sign.position.lat, sign.position.lng]).addTo(map);
+            
+            // Marker uchun popup qo'shish
+            marker.bindPopup(`
+              <div class="popup-content">
+                <img src="${sign.image}" alt="${sign.name}">
+                <h3>${sign.name}</h3>
+                <p>${sign.description}</p>
+                <p><strong>Kategoriya:</strong> ${sign.category}</p>
+              </div>
+            `);
+            
+            markers.push(marker);
+          });
+          
+          // Chorrahalar markerlarini qo'shish
+          intersections.value.forEach(intersection => {
+            const intersectionMarker = L.circle(
+              [intersection.position.lat, intersection.position.lng],
+              {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.5,
+                radius: 30
+              }
+            ).addTo(map);
+            
+            // Chorraha uchun popup qo'shish
+            intersectionMarker.bindPopup(`
+              <div class="popup-content">
+                <h3>${intersection.name}</h3>
+                <p>Chorraha</p>
+              </div>
+            `);
+            
+            markers.push(intersectionMarker);
+          });
+        };
+
+        // Xaritada belgini ko'rsatish
+        const showSignOnMap = (sign) => {
+          map.setView([sign.position.lat, sign.position.lng], 17);
+          
+          // Belgi markerini topish va popup ochish
+          markers.forEach(marker => {
+            const markerLatLng = marker.getLatLng();
+            if (markerLatLng && 
+                markerLatLng.lat === sign.position.lat && 
+                markerLatLng.lng === sign.position.lng) {
+              marker.openPopup();
+            }
+          });
+        };
+
+        // Xaritani moslash
+        onMounted(() => {
+          // Toshkent koordinatalari
+          const tashkentCoords = [41.311158, 69.279737];
+          
+          // Xaritani yaratish
+          map = L.map('map').setView(tashkentCoords, 15);
+          
+          // OSM tizimdagi xarita qatlamini qo'shish
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }).addTo(map);
+          
+          // Barcha belgilarni ko'rsatish
+          showAllSigns();
+        });
+
+        return {
+          trafficSigns,
+          intersections,
+          search,
+          filteredSigns,
+          groupedSigns,
+          showSignOnMap
+        };
+      }
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>
