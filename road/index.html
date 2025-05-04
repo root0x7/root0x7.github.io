@@ -1,866 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Yo'l belgilarini aniqlash</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-time Chorrahani Aniqlovchi Dastur</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: Arial, sans-serif;
-      overflow: hidden;
-    }
-    
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    
-    .header {
-      background-color: #343a40;
-      color: white;
-      padding: 10px;
-      text-align: center;
-      z-index: 1000;
-    }
-    
-    .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-    
     #map {
-      flex: 1;
-      width: 100%;
-      z-index: 1;
-    }
-    
-    #video-container {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 40%;
-      z-index: 2;
-      background-color: black;
-    }
-    
-    #camera-feed {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    .detection-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-    
-    .detection-box {
-      position: absolute;
-      border: 3px solid lime;
-      background-color: rgba(0, 255, 0, 0.2);
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-    }
-    
-    .detection-label {
-      background-color: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 4px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      margin-top: -20px;
-    }
-    
-    .controls {
-      position: absolute;
-      bottom: 42%;
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-around;
-      padding: 10px;
-      background-color: rgba(0, 0, 0, 0.7);
-      z-index: 3;
-    }
-    
-    .controls button {
-      padding: 8px 12px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    
-    .controls button:disabled {
-      background-color: #6c757d;
-      cursor: not-allowed;
-    }
-    
-    .alert-box {
-      position: absolute;
-      top: 20%;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 15px 20px;
-      background-color: rgba(255, 0, 0, 0.8);
-      color: white;
-      border-radius: 8px;
-      font-size: 18px;
-      font-weight: bold;
-      z-index: 10;
-      display: none;
-      text-align: center;
-      animation: pulse 1s infinite;
-    }
-    
-    @keyframes pulse {
-      0% { transform: translateX(-50%) scale(1); }
-      50% { transform: translateX(-50%) scale(1.1); }
-      100% { transform: translateX(-50%) scale(1); }
-    }
-    
-    .sign-details {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background-color: white;
-      border-radius: 8px;
-      padding: 10px;
-      width: 250px;
-      max-height: 300px;
-      overflow-y: auto;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      z-index: 5;
-      display: none;
-    }
-    
-    .sign-details img {
-      width: 60px;
-      height: 60px;
-      margin-right: 10px;
-      float: left;
-    }
-    
-    .sign-details h3 {
-      margin-top: 0;
-      margin-bottom: 5px;
-      font-size: 16px;
-    }
-    
-    .sign-details p {
-      font-size: 14px;
-      color: #555;
-      margin: 5px 0;
-    }
-    
-    .close-btn {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 18px;
-      color: #333;
-    }
-    
-    .dashboard {
-      padding: 10px;
-      background-color: rgba(255, 255, 255, 0.9);
-      border-radius: 8px;
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 5;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    }
-    
-    .dashboard p {
-      margin: 5px 0;
-      font-size: 14px;
-    }
-    
-    .dashboard .speed {
-      font-size: 18px;
-      font-weight: bold;
-    }
-    
-    .detection-history {
-      position: absolute;
-      bottom: 45%;
-      right: 10px;
-      width: 200px;
-      max-height: 30%;
-      overflow-y: auto;
-      background-color: rgba(255, 255, 255, 0.9);
-      border-radius: 8px;
-      padding: 10px;
-      z-index: 5;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    }
-    
-    .history-item {
-      display: flex;
-      align-items: center;
-      padding: 5px 0;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .history-item img {
-      width: 30px;
-      height: 30px;
-      margin-right: 10px;
-    }
-    
-    .history-item .time {
-      font-size: 12px;
-      color: #777;
-    }
-
-    .user-marker {
-      background-color: blue;
-      border-radius: 50%;
-      border: 2px solid white;
-      width: 15px;
-      height: 15px;
+      height: 80vh;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div id="app">
-    <div class="header">
-      <h1>Yo'l belgilari aniqlagich</h1>
-    </div>
-    
-    <div class="main-content">
-      <div id="map"></div>
-      
-      <div class="dashboard">
-        <p class="speed">Tezlik: <span id="current-speed">0</span> km/soat</p>
-        <p>Joylashuv: <span id="current-location">41.311151, 69.279737</span></p>
-        <p>Aniqlangan belgilar: <span id="detection-count">0</span></p>
-      </div>
-      
-      <div class="detection-history" id="detection-history">
-        <h3>So'nggi aniqlanganlar:</h3>
-        <div id="history-items"></div>
-      </div>
-      
-      <div id="video-container">
-        <video id="camera-feed" autoplay playsinline></video>
-        <div class="detection-overlay" id="detection-overlay"></div>
-      </div>
-      
-      <div class="controls">
-        <button id="camera-toggle">Kamerani yoqish</button>
-        <button id="map-toggle">Kamerani to'liq ekranda ko'rsatish</button>
-      </div>
-      
-      <div class="alert-box" id="alert-box"></div>
-      
-      <div class="sign-details" id="sign-details">
-        <button class="close-btn" id="close-details">&times;</button>
-        <img id="sign-image" src="" alt="">
-        <h3 id="sign-name"></h3>
-        <p id="sign-description"></p>
-        <p><strong>Kategoriya:</strong> <span id="sign-category"></span></p>
-        <p><strong>Maslahat:</strong> <span id="sign-advice"></span></p>
-      </div>
-    </div>
+    <h2>Real-time chorraha va yo‘l belgilarini aniqlash</h2>
+    <div id="map"></div>
+    <p v-if="nearestIntersection">Yaqin chorraha: {{ nearestIntersection }}</p>
+    <p v-if="roadSigns.length">Yaqin yo‘l belgilar: {{ roadSigns.join(', ') }}</p>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  
   <script>
-    // Global variables
-    let map = null;
-    let userMarker = null;
-    let videoTrack = null;
-    let animationFrame = null;
-    let lastProcessedTime = 0;
-    let movementInterval = null;
-    let isCameraOn = false;
-    let cameraAvailable = true;
-    let showMap = true;
-    let currentSpeed = 0;
-    let location = { lat: 41.311151, lng: 69.279737 };
-    let detectionCount = 0;
-    let detectionHistory = [];
-    let currentSign = null;
-    
-    // Traffic signs data
-    const trafficSigns = [
-      {
-        id: 1,
-        name: "To'xtash man etiladi",
-        description: "Transportning to'xtashi taqiqlangan joy",
-        image: "/api/placeholder/50/50",
-        category: "Taqiqlovchi belgilar",
-        advice: "Bu joyda to'xtamang, jarimaga tortilishingiz mumkin.",
-        modelClass: "stop-prohibited"
-      },
-      {
-        id: 2,
-        name: "Kirish taqiqlanadi",
-        description: "Barcha transport vositalari uchun kirish taqiqlangan",
-        image: "/api/placeholder/50/50",
-        category: "Taqiqlovchi belgilar",
-        advice: "Bu yo'lga kirishingiz mumkin emas, boshqa yo'lni tanlang.",
-        modelClass: "no-entry"
-      },
-      {
-        id: 3,
-        name: "Piyodalar o'tish joyi",
-        description: "Piyodalar o'tish joyi belgilanadi",
-        image: "/api/placeholder/50/50",
-        category: "Axborot-ko'rsatkich belgilar",
-        advice: "Piyodalarga yo'l bering va sekinlang.",
-        modelClass: "pedestrian-crossing"
-      },
-      {
-        id: 4,
-        name: "Asosiy yo'l",
-        description: "Kesishuvchi yo'llarga nisbatan afzallikka ega bo'lgan yo'l",
-        image: "/api/placeholder/50/50",
-        category: "Ustuvorlik belgilari",
-        advice: "Siz asosiy yo'ldasiz, boshqa yo'llardan kelayotgan transportlar sizga yo'l berishi kerak.",
-        modelClass: "main-road"
-      },
-      {
-        id: 5,
-        name: "Yo'l berish",
-        description: "Haydovchi kesishayotgan yo'ldagi transport vositalariga yo'l berishi kerak",
-        image: "/api/placeholder/50/50",
-        category: "Ustuvorlik belgilari",
-        advice: "Asosiy yo'ldagi transportlarga yo'l bering.",
-        modelClass: "yield"
-      },
-      {
-        id: 6,
-        name: "Tezlik cheklovi (60)",
-        description: "60 km/soat dan ortiq tezlikda harakatlanish taqiqlanadi",
-        image: "/api/placeholder/50/50",
-        category: "Taqiqlovchi belgilar",
-        advice: "Tezlikni 60 km/soatdan oshirmang.",
-        modelClass: "speed-limit-60"
-      },
-      {
-        id: 7,
-        name: "Svetofor",
-        description: "Oldinda svetofor bor",
-        image: "/api/placeholder/50/50",
-        category: "Ogohlantiruvchi belgilar",
-        advice: "Oldindagi svetoforga tayyorlaning.",
-        modelClass: "traffic-light-ahead"
-      },
-      {
-        id: 8,
-        name: "To'xtash joyi",
-        description: "Transport vositalarini to'xtatish va turish joyi",
-        image: "/api/placeholder/50/50",
-        category: "Axborot-ko'rsatkich belgilar",
-        advice: "Bu joyda to'xtashingiz va turishingiz mumkin.",
-        modelClass: "parking"
-      },
-      {
-        id: 9,
-        name: "Bolalar",
-        description: "Yo'l yaqinida bolalar muassasasi bor",
-        image: "/api/placeholder/50/50",
-        category: "Ogohlantiruvchi belgilar",
-        advice: "Sekinlang, yo'lda bolalar bo'lishi mumkin.",
-        modelClass: "children"
-      },
-      {
-        id: 10,
-        name: "Bir tomonlama yo'l",
-        description: "Bir tomonlama harakatli yo'l",
-        image: "/api/placeholder/50/50",
-        category: "Axborot-ko'rsatkich belgilar",
-        advice: "Yo'lda faqat ko'rsatilgan yo'nalishda harakatlanish mumkin.",
-        modelClass: "one-way"
-      }
-    ];
-    
-    // Intersections data
-    const intersections = [
-      {
-        id: 1,
-        name: "Amir Temur va Shaxrisabz ko'chalari chorrahasi",
-        position: { lat: 41.311023, lng: 69.280514 }
-      },
-      {
-        id: 2,
-        name: "Mustaqillik va Bunyodkor ko'chalari chorrahasi",
-        position: { lat: 41.313456, lng: 69.278969 }
-      },
-      {
-        id: 3,
-        name: "Navoiy va Furqat ko'chalari chorrahasi",
-        position: { lat: 41.309245, lng: 69.283218 }
-      }
-    ];
-    
-    // Virtual traffic sign locations
-    const virtualSignLocations = [
-      {
-        position: { lat: 41.311151, lng: 69.279737 },
-        signId: 1,
-        triggerDistance: 50 // meters
-      },
-      {
-        position: { lat: 41.312781, lng: 69.281582 },
-        signId: 2,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.310521, lng: 69.280664 },
-        signId: 3,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.309876, lng: 69.282795 },
-        signId: 4,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.308654, lng: 69.283867 },
-        signId: 5,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.313542, lng: 69.279008 },
-        signId: 6,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.314267, lng: 69.280553 },
-        signId: 7,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.311879, lng: 69.284318 },
-        signId: 8,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.310090, lng: 69.277843 },
-        signId: 9,
-        triggerDistance: 50
-      },
-      {
-        position: { lat: 41.307932, lng: 69.280062 },
-        signId: 10,
-        triggerDistance: 50
-      }
-    ];
-    
-    // DOM elements
-    const cameraToggleBtn = document.getElementById('camera-toggle');
-    const mapToggleBtn = document.getElementById('map-toggle');
-    const closeDetailsBtn = document.getElementById('close-details');
-    
-    // Calculate distance between two points (haversine formula)
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3; // Earth radius in meters
-      const φ1 = lat1 * Math.PI/180;
-      const φ2 = lat2 * Math.PI/180;
-      const Δφ = (lat2-lat1) * Math.PI/180;
-      const Δλ = (lon2-lon1) * Math.PI/180;
+    const { createApp, ref, onMounted } = Vue;
 
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    createApp({
+      setup() {
+        const map = ref(null);
+        const userMarker = ref(null);
+        const nearestIntersection = ref('');
+        const roadSigns = ref([]);
 
-      return R * c; // in meters
-    }
-    
-    // Toggle camera
-    function toggleCamera() {
-      if (isCameraOn) {
-        stopCamera();
-      } else {
-        startCamera();
-      }
-    }
-    
-    // Start camera
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
-        });
-        
-        document.getElementById('camera-feed').srcObject = stream;
-        videoTrack = stream.getVideoTracks()[0];
-        isCameraOn = true;
-        cameraToggleBtn.textContent = "Kamerani o'chirish";
-        
-        // Start sign detection after camera is initialized
-        startSignDetection();
-        
-      } catch (err) {
-        console.error("Camera initialization failed:", err);
-        cameraAvailable = false;
-        alert("Kameraga ruxsat berilmadi yoki kamera mavjud emas!");
-        cameraToggleBtn.disabled = true;
-      }
-    }
-    
-    // Stop camera
-    function stopCamera() {
-      if (videoTrack) {
-        videoTrack.stop();
-        videoTrack = null;
-      }
-      
-      document.getElementById('camera-feed').srcObject = null;
-      isCameraOn = false;
-      cameraToggleBtn.textContent = "Kamerani yoqish";
-      
-      // Stop sign detection
-      stopSignDetection();
-    }
-    
-    // Toggle map view
-    function toggleMap() {
-      showMap = !showMap;
-      
-      if (showMap) {
-        document.getElementById('map').style.display = 'block';
-        document.getElementById('video-container').style.height = '40%';
-        mapToggleBtn.textContent = "Kamerani to'liq ekranda ko'rsatish";
-      } else {
-        document.getElementById('map').style.display = 'none';
-        document.getElementById('video-container').style.height = '100%';
-        mapToggleBtn.textContent = "Xaritani ko'rsatish";
-      }
-    }
-    
-    // Start sign detection
-    function startSignDetection() {
-      detectSigns();
-    }
-    
-    // Stop sign detection
-    function stopSignDetection() {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-        animationFrame = null;
-      }
-    }
-    
-    // Detect traffic signs (simulation)
-    function detectSigns() {
-      const now = Date.now();
-      
-      // Update every 100ms
-      if (now - lastProcessedTime > 100) {
-        const overlay = document.getElementById('detection-overlay');
-        overlay.innerHTML = '';
-        
-        // Check virtual signs based on location
-        virtualSignLocations.forEach(virtualSign => {
-          const distance = calculateDistance(
-            location.lat,
-            location.lng,
-            virtualSign.position.lat,
-            virtualSign.position.lng
-          );
-          
-          // If close to a sign (less than trigger distance)
-          if (distance < virtualSign.triggerDistance) {
-            const sign = trafficSigns.find(s => s.id === virtualSign.signId);
-            if (sign) {
-              // Random position for simulation
-              const randomLeft = Math.floor(Math.random() * 60) + 20;
-              const randomTop = Math.floor(Math.random() * 40) + 10;
-              const randomWidth = Math.floor(Math.random() * 30) + 50;
-              const randomHeight = Math.floor(Math.random() * 30) + 50;
-              
-              // Show detected sign on screen
-              const detectionBox = document.createElement('div');
-              detectionBox.className = 'detection-box';
-              detectionBox.style.left = `${randomLeft}%`;
-              detectionBox.style.top = `${randomTop}%`;
-              detectionBox.style.width = `${randomWidth}px`;
-              detectionBox.style.height = `${randomHeight}px`;
-              
-              const detectionLabel = document.createElement('div');
-              detectionLabel.className = 'detection-label';
-              detectionLabel.textContent = sign.name;
-              
-              detectionBox.appendChild(detectionLabel);
-              overlay.appendChild(detectionBox);
-              
-              // Only add sign once in a 5-second period
-              const alreadyDetected = detectionHistory.some(
-                item => item.sign.id === sign.id && 
-                (now - item.timestamp) < 5000
-              );
-              
-              if (!alreadyDetected) {
-                // Show alert
-                showAlert(sign.name);
-                
-                // Add to detection history
-                addToDetectionHistory(sign);
-                
-                // Update counter
-                detectionCount++;
-                document.getElementById('detection-count').textContent = detectionCount;
-                
-                // Show sign details
-                showSignDetails(sign);
-                
-                // Check speed (for speed limit sign)
-                if (sign.id === 6 && currentSpeed > 60) {
-                  showAlert("DIQQAT! Tezlik chegarasidan oshib ketdingiz!");
-                }
+        function haversine(lat1, lon1, lat2, lon2) {
+          const R = 6371e3;
+          const φ1 = lat1 * Math.PI / 180;
+          const φ2 = lat2 * Math.PI / 180;
+          const Δφ = (lat2 - lat1) * Math.PI / 180;
+          const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+          return R * c; // in meters
+        }
+
+        const demoIntersections = [
+          { name: "Chorraha A", lat: 40.386, lon: 71.782 },
+          { name: "Chorraha B", lat: 40.3875, lon: 71.780 },
+        ];
+
+        const demoSigns = [
+          { name: "Stop", lat: 40.3861, lon: 71.7821 },
+          { name: "No Entry", lat: 40.3876, lon: 71.7801 },
+        ];
+
+        onMounted(() => {
+          map.value = L.map('map').setView([40.3864, 71.7821], 15);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OSM contributors'
+          }).addTo(map.value);
+
+          userMarker.value = L.marker([40.3864, 71.7821]).addTo(map.value)
+            .bindPopup("Sizning joylashuvingiz").openPopup();
+
+          function updateUserLocation(pos) {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            userMarker.value.setLatLng([lat, lon]);
+            map.value.setView([lat, lon]);
+
+            // Yaqin chorrahani aniqlash
+            let closest = null;
+            let minDist = Infinity;
+            for (let i of demoIntersections) {
+              const dist = haversine(lat, lon, i.lat, i.lon);
+              if (dist < 200 && dist < minDist) {
+                closest = i;
+                minDist = dist;
               }
             }
+            nearestIntersection.value = closest ? closest.name : 'Topilmadi';
+
+            // Yaqin yo‘l belgilarini topish
+            roadSigns.value = demoSigns
+              .filter(s => haversine(lat, lon, s.lat, s.lon) < 150)
+              .map(s => s.name);
           }
+
+          navigator.geolocation.watchPosition(updateUserLocation);
         });
-        
-        lastProcessedTime = now;
+
+        return { nearestIntersection, roadSigns };
       }
-      
-      animationFrame = requestAnimationFrame(detectSigns);
-    }
-    
-    // Add to detection history
-    function addToDetectionHistory(sign) {
-      const now = new Date();
-      const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-      
-      detectionHistory.unshift({
-        sign: sign,
-        time: timeString,
-        timestamp: Date.now()
-      });
-      
-      // Keep only the last 10 items
-      if (detectionHistory.length > 10) {
-        detectionHistory.pop();
-      }
-      
-      // Update UI
-      updateDetectionHistoryUI();
-    }
-    
-    // Update detection history UI
-    function updateDetectionHistoryUI() {
-      const historyContainer = document.getElementById('history-items');
-      historyContainer.innerHTML = '';
-      
-      detectionHistory.forEach(item => {
-        const historyItem = document.createElement('div');
-        historyItem.className = 'history-item';
-        
-        historyItem.innerHTML = `
-          <img src="${item.sign.image}" alt="${item.sign.name}">
-          <div>
-            <div>${item.sign.name}</div>
-            <div class="time">${item.time}</div>
-          </div>
-        `;
-        
-        historyContainer.appendChild(historyItem);
-      });
-    }
-    
-    // Show alert
-    function showAlert(message) {
-      const alertBox = document.getElementById('alert-box');
-      alertBox.textContent = message;
-      alertBox.style.display = 'block';
-      
-      // Close after 3 seconds
-      setTimeout(() => {
-        alertBox.style.display = 'none';
-      }, 3000);
-    }
-    
-    // Show sign details
-    function showSignDetails(sign) {
-      currentSign = sign;
-      
-      document.getElementById('sign-image').src = sign.image;
-      document.getElementById('sign-image').alt = sign.name;
-      document.getElementById('sign-name').textContent = sign.name;
-      document.getElementById('sign-description').textContent = sign.description;
-      document.getElementById('sign-category').textContent = sign.category;
-      document.getElementById('sign-advice').textContent = sign.advice;
-      
-      document.getElementById('sign-details').style.display = 'block';
-      
-      // Close after 5 seconds
-      setTimeout(() => {
-        document.getElementById('sign-details').style.display = 'none';
-      }, 5000);
-    }
-    
-    // Close sign details
-    function closeSignDetails() {
-      document.getElementById('sign-details').style.display = 'none';
-    }
-    
-    // Update location
-    function updateLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(
-          (position) => {
-            location = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            };
-            
-            // Update speed if available
-            if (position.coords.speed !== null) {
-              // Convert m/s to km/h
-              currentSpeed = Math.round(position.coords.speed * 3.6);
-              document.getElementById('current-speed').textContent = currentSpeed;
-            }
-            
-            // Update location display
-            document.getElementById('current-location').textContent = 
-              `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-            
-            // Update user marker
-            updateUserMarker();
-            
-            // Center map
-            if (map) {
-              map.setView([location.lat, location.lng], 17);
-            }
-            
-          },
-          (error) => {
-            console.error("Geolocation error:", error);
-            // Simulate random movement if geolocation fails
-            simulateMovement();
-          },
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-        );
-      } else {
-        console.error("Geolocation not supported");
-        // Simulate random movement
-        simulateMovement();
-      }
-    }
-    
-    // Update user marker
-    function updateUserMarker() {
-      if (map) {
-        if (userMarker) {
-          userMarker.setLatLng([location.lat, location.lng]);
-        } else {
-          userMarker = L.marker([location.lat, location.lng], {
-            icon: L.divIcon({
-              className: 'user-marker',
-              iconSize: [15, 15]
-            })
-          }).addTo(map);
-        }
-      }
-    }
-    
-    // Simulate random movement
-    function simulateMovement() {
-      // Stop existing simulation
-      if (movementInterval) {
-        clearInterval(movementInterval);
-      }
-      
-      // Update every 2 seconds
-      movementInterval = setInterval(() => {
-        // Move in a random direction
-        const latChange = (Math.random() - 0.5) * 0.0005;
-        const lngChange = (Math.random() - 0.5) * 0.0005;
-        
-        location = {
-          lat: location.lat + latChange,
-          lng: location.lng + lngChange
-        };
-        
-        // Update location display
-        document.getElementById('current-location').textContent = 
-          `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-        
-        // Random speed (10-80 km/h)
-        currentSpeed = Math.floor(Math.random() * 70) + 10;
-        document.getElementById('current-speed').textContent = currentSpeed;
-        
-        // Update user marker
-        updateUserMarker();
-        
-        // Center map
-        if (map) {
-          map.setView([location.lat, location.lng], 17);
-        }
-      }, 2000);
-    }
-    
-    // Initialize map
-    function initMap() {
-      map = L.map('map').setView([location.lat, location.lng], 15);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
-      
-      // Show traffic signs on map
-      trafficSigns.forEach(sign => {
-        const virtualLocation = virtualSignLocations.find(loc => loc.signId === sign.id);
-        if (virtualLocation) {
-          const signMarker = L.marker([virtualLocation.position.lat, virtualLocation.position.lng], {
-            icon: L.divIcon({
-              className: 'sign-marker',
-              html: `<div style="background-color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid #ff4757; box-shadow: 0 0 5px rgba(0,0,0,0.3);">${sign.id}</div>`,
-              iconSize: [24, 24]
-            })
-          }).addTo(map);
-          
-          signMarker.bindPopup(`
-            <div style="text-align: center;">
-              <img src="${sign.image}" style="width: 50px; height: 50px; margin-bottom: 5px;">
-              <h3>${sign.name}</h3>
-              <p>${sign.description}</p>
-            </div>
-          `);
-        }
-      });
-      
-      // Show intersections on map
-      intersections.forEach(intersection => {
-        const intersectionMarker = L.circle(
-          [intersection.position.lat, intersection.position.lng],
-          {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 0.5,
-            radius: 30
-          }
-        ).addTo(map);
-        
-        intersectionMarker.bindPopup(`
-          <div style="text-align: center;">
-            <h3>${intersection.name}</h3>
-            <p>Ch
+    }).mount('#app');
+  </script>
+</body>
+</html>
