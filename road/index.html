@@ -113,41 +113,706 @@
         
         // Yo'l belgilari ma'lumotlari
         const roadSigns = [
-          {
-            id: 1,
-            name: "To'xtash belgisi",
-            description: "Harakatlanishni to'xtatishni talab qiladi",
-            type: "stop",
-            position: { lat: 41.311, lng: 69.243 }
-          },
-          {
-            id: 2,
-            name: "Piyodalar o'tish joyi",
-            description: "Piyodalar o'tish joyini ko'rsatadi",
-            type: "pedestrian",
-            position: { lat: 41.310, lng: 69.242 }
-          },
-          {
-            id: 3,
-            name: "Asosiy yo'l",
-            description: "Asosiy yo'lni ko'rsatadi",
-            type: "main_road",
-            position: { lat: 41.312, lng: 69.241 }
-          },
-          {
-            id: 4,
-            name: "Yo'l berish",
-            description: "Yo'l berish belgisi",
-            type: "yield",
-            position: { lat: 41.313, lng: 69.244 }
-          },
-          {
-            id: 5,
-            name: "Chorraha",
-            description: "Svetofor bilan boshqariladigan chorraha",
-            type: "intersection",
-            position: { lat: 41.309, lng: 69.245 }
-          }
+           {
+    id: 1,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3821, lng: 71.7843 }
+  },
+  {
+    id: 2,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3856, lng: 71.7830 }
+  },
+  {
+    id: 3,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3829, lng: 71.7812 }
+  },
+  {
+    id: 4,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3811, lng: 71.7824 }
+  },
+  {
+    id: 5,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3803, lng: 71.7838 }
+  },
+  {
+    id: 6,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3798, lng: 71.7844 }
+  },
+  {
+    id: 7,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3792, lng: 71.7862 }
+  },
+  {
+    id: 8,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3845, lng: 71.7869 }
+  },
+  {
+    id: 9,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3853, lng: 71.7878 }
+  },
+  {
+    id: 10,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3837, lng: 71.7892 }
+  },
+  {
+    id: 11,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3822, lng: 71.7905 }
+  },
+  {
+    id: 12,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3816, lng: 71.7918 }
+  },
+  {
+    id: 13,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3808, lng: 71.7926 }
+  },
+  {
+    id: 14,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3790, lng: 71.7935 }
+  },
+  {
+    id: 15,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3778, lng: 71.7942 }
+  },
+  {
+    id: 16,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3772, lng: 71.7958 }
+  },
+  {
+    id: 17,
+    name: "Piyodalar o'tish joyi",
+    description: "Maktab oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3762, lng: 71.7967 }
+  },
+  {
+    id: 18,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3752, lng: 71.7975 }
+  },
+  {
+    id: 19,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3740, lng: 71.7991 }
+  },
+  {
+    id: 20,
+    name: "Chorraha",
+    description: "To'rt tomonlama chorraha",
+    type: "intersection",
+    position: { lat: 40.3734, lng: 71.8005 }
+  },
+  {
+    id: 21,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3876, lng: 71.7835 }
+  },
+  {
+    id: 22,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3884, lng: 71.7852 }
+  },
+  {
+    id: 23,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3891, lng: 71.7869 }
+  },
+  {
+    id: 24,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3902, lng: 71.7878 }
+  },
+  {
+    id: 25,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3914, lng: 71.7885 }
+  },
+  {
+    id: 26,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3927, lng: 71.7912 }
+  },
+  {
+    id: 27,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3932, lng: 71.7925 }
+  },
+  {
+    id: 28,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3945, lng: 71.7938 }
+  },
+  {
+    id: 29,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3958, lng: 71.7944 }
+  },
+  {
+    id: 30,
+    name: "Chorraha",
+    description: "T-simon chorraha",
+    type: "intersection",
+    position: { lat: 40.3968, lng: 71.7953 }
+  },
+  {
+    id: 31,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3785, lng: 71.7800 }
+  },
+  {
+    id: 32,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3775, lng: 71.7815 }
+  },
+  {
+    id: 33,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3765, lng: 71.7825 }
+  },
+  {
+    id: 34,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3755, lng: 71.7835 }
+  },
+  {
+    id: 35,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3748, lng: 71.7845 }
+  },
+  {
+    id: 36,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3738, lng: 71.7855 }
+  },
+  {
+    id: 37,
+    name: "Piyodalar o'tish joyi",
+    description: "Bozor oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3728, lng: 71.7865 }
+  },
+  {
+    id: 38,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3718, lng: 71.7875 }
+  },
+  {
+    id: 39,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3708, lng: 71.7885 }
+  },
+  {
+    id: 40,
+    name: "Chorraha",
+    description: "Y-simon chorraha",
+    type: "intersection",
+    position: { lat: 40.3698, lng: 71.7895 }
+  },
+  {
+    id: 41,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3688, lng: 71.7905 }
+  },
+  {
+    id: 42,
+    name: "Piyodalar o'tish joyi",
+    description: "Kasalxona oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3678, lng: 71.7915 }
+  },
+  {
+    id: 43,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3668, lng: 71.7925 }
+  },
+  {
+    id: 44,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3658, lng: 71.7935 }
+  },
+  {
+    id: 45,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3648, lng: 71.7945 }
+  },
+  {
+    id: 46,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3638, lng: 71.7955 }
+  },
+  {
+    id: 47,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3628, lng: 71.7965 }
+  },
+  {
+    id: 48,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3618, lng: 71.7975 }
+  },
+  {
+    id: 49,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3608, lng: 71.7985 }
+  },
+  {
+    id: 50,
+    name: "Chorraha",
+    description: "To'rt tomonlama chorraha",
+    type: "intersection",
+    position: { lat: 40.3598, lng: 71.7995 }
+  },
+  {
+    id: 51,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3870, lng: 71.8015 }
+  },
+  {
+    id: 52,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3860, lng: 71.8025 }
+  },
+  {
+    id: 53,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3850, lng: 71.8035 }
+  },
+  {
+    id: 54,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3840, lng: 71.8045 }
+  },
+  {
+    id: 55,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3830, lng: 71.8055 }
+  },
+  {
+    id: 56,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3820, lng: 71.8065 }
+  },
+  {
+    id: 57,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3810, lng: 71.8075 }
+  },
+  {
+    id: 58,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3800, lng: 71.8085 }
+  },
+  {
+    id: 59,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3790, lng: 71.8095 }
+  },
+  {
+    id: 60,
+    name: "Chorraha",
+    description: "T-simon chorraha",
+    type: "intersection",
+    position: { lat: 40.3780, lng: 71.8105 }
+  },
+  {
+    id: 61,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3770, lng: 71.8115 }
+  },
+  {
+    id: 62,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3760, lng: 71.8125 }
+  },
+  {
+    id: 63,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3750, lng: 71.8135 }
+  },
+  {
+    id: 64,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3740, lng: 71.8145 }
+  },
+  {
+    id: 65,
+    name: "Chorraha",
+    description: "Y-simon chorraha",
+    type: "intersection",
+    position: { lat: 40.3730, lng: 71.8155 }
+  },
+  {
+    id: 66,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3720, lng: 71.8165 }
+  },
+  {
+    id: 67,
+    name: "Piyodalar o'tish joyi",
+    description: "Universitet oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3710, lng: 71.8175 }
+  },
+  {
+    id: 68,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3700, lng: 71.8185 }
+  },
+  {
+    id: 69,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3690, lng: 71.8195 }
+  },
+  {
+    id: 70,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3680, lng: 71.8205 }
+  },
+  {
+    id: 71,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3670, lng: 71.8215 }
+  },
+  {
+    id: 72,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3660, lng: 71.8225 }
+  },
+  {
+    id: 73,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3650, lng: 71.8235 }
+  },
+  {
+    id: 74,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3640, lng: 71.8245 }
+  },
+  {
+    id: 75,
+    name: "Chorraha",
+    description: "To'rt tomonlama chorraha",
+    type: "intersection",
+    position: { lat: 40.3630, lng: 71.8255 }
+  },
+  {
+    id: 76,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3620, lng: 71.8265 }
+  },
+  {
+    id: 77,
+    name: "Piyodalar o'tish joyi",
+    description: "Savdo markazi oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3610, lng: 71.8275 }
+  },
+  {
+    id: 78,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3600, lng: 71.8285 }
+  },
+  {
+    id: 79,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3590, lng: 71.8295 }
+  },
+  {
+    id: 80,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3580, lng: 71.8305 }
+  },
+  {
+    id: 81,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3570, lng: 71.8315 }
+  },
+  {
+    id: 82,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3560, lng: 71.8325 }
+  },
+  {
+    id: 83,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3550, lng: 71.8335 }
+  },
+  {
+    id: 84,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3540, lng: 71.8345 }
+  },
+  {
+    id: 85,
+    name: "Chorraha",
+    description: "T-simon chorraha",
+    type: "intersection",
+    position: { lat: 40.3530, lng: 71.8355 }
+  },
+  {
+    id: 86,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3520, lng: 71.8365 }
+  },
+  {
+    id: 87,
+    name: "Piyodalar o'tish joyi",
+    description: "Park oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3510, lng: 71.8375 }
+  },
+  {
+    id: 88,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3500, lng: 71.8385 }
+  },
+  {
+    id: 89,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3490, lng: 71.8395 }
+  },
+  {
+    id: 90,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3480, lng: 71.8405 }
+  },
+  {
+    id: 91,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3470, lng: 71.8415 }
+  },
+  {
+    id: 92,
+    name: "Piyodalar o'tish joyi",
+    description: "Piyodalar o'tish joyini ko'rsatadi",
+    type: "pedestrian",
+    position: { lat: 40.3460, lng: 71.8425 }
+  },
+  {
+    id: 93,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3450, lng: 71.8435 }
+  },
+  {
+    id: 94,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3440, lng: 71.8445 }
+  },
+  {
+    id: 95,
+    name: "Chorraha",
+    description: "Y-simon chorraha",
+    type: "intersection",
+    position: { lat: 40.3430, lng: 71.8455 }
+  },
+  {
+    id: 96,
+    name: "To'xtash belgisi",
+    description: "Harakatlanishni to'xtatishni talab qiladi",
+    type: "stop",
+    position: { lat: 40.3420, lng: 71.8465 }
+  },
+  {
+    id: 97,
+    name: "Piyodalar o'tish joyi",
+    description: "Avtobus bekati oldidagi piyodalar o'tish joyi",
+    type: "pedestrian",
+    position: { lat: 40.3410, lng: 71.8475 }
+  },
+  {
+    id: 98,
+    name: "Asosiy yo'l",
+    description: "Asosiy yo'lni ko'rsatadi",
+    type: "main_road",
+    position: { lat: 40.3400, lng: 71.8485 }
+  },
+  {
+    id: 99,
+    name: "Yo'l berish",
+    description: "Yo'l berish belgisi",
+    type: "yield",
+    position: { lat: 40.3390, lng: 71.8495 }
+  },
+  {
+    id: 100,
+    name: "Chorraha",
+    description: "Svetofor bilan boshqariladigan chorraha",
+    type: "intersection",
+    position: { lat: 40.3380, lng: 71.8505 }
+  }
         ];
 
         // Belgi turlari uchun ikonalar
