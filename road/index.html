@@ -1,103 +1,335 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Real-time Chorrahani Aniqlovchi Dastur</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yo'l Belgilari va Chorrahalar App</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .header {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px;
+      text-align: center;
+    }
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
     #map {
-      height: 80vh;
-      margin-top: 10px;
+      width: 100%;
+      height: 100%;
+    }
+    .sign-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      max-height: 30%;
+      overflow-y: auto;
+      display: none;
+    }
+    .sign-info.active {
+      display: block;
+    }
+    .sign-info.alert {
+      background-color: rgba(255, 220, 0, 0.9);
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0% { background-color: rgba(255, 220, 0, 0.9); }
+      50% { background-color: rgba(255, 100, 0, 0.9); }
+      100% { background-color: rgba(255, 220, 0, 0.9); }
+    }
+    .sign-image {
+      width: 40px;
+      height: 40px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .distance-tag {
+      display: inline-block;
+      background-color: #f44336;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 12px;
+      margin-left: 5px;
     }
   </style>
 </head>
 <body>
   <div id="app">
-    <h2>Real-time chorraha va yo‘l belgilarini aniqlash</h2>
-    <div id="map"></div>
-    <p v-if="nearestIntersection">Yaqin chorraha: {{ nearestIntersection }}</p>
-    <p v-if="roadSigns.length">Yaqin yo‘l belgilar: {{ roadSigns.join(', ') }}</p>
+    <div class="header">
+      <h1>{{ title }}</h1>
+    </div>
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="sign-info" :class="{ active: selectedSign, alert: proximityAlert }">
+        <div v-if="selectedSign">
+          <h3>{{ selectedSign.name }} 
+            <span v-if="selectedSign.distance" class="distance-tag">{{ Math.round(selectedSign.distance) }}m</span>
+          </h3>
+          <p>{{ selectedSign.description }}</p>
+          <p v-if="proximityAlert" style="color: #f44336; font-weight: bold;">
+            Diqqat! Yo'l belgisiga yaqinlashyapsiz!
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    const { createApp, ref, onMounted } = Vue;
-
-    createApp({
+    const { createApp, ref, onMounted, watch } = Vue;
+    
+    const app = createApp({
       setup() {
+        const title = ref('Yo\'l Belgilari va Chorrahalar');
         const map = ref(null);
+        const selectedSign = ref(null);
+        const userLocation = ref({ lat: 41.311081, lng: 69.240562 }); // Tashkent as default
         const userMarker = ref(null);
-        const nearestIntersection = ref('');
-        const roadSigns = ref([]);
-
-        function haversine(lat1, lon1, lat2, lon2) {
-          const R = 6371e3;
-          const φ1 = lat1 * Math.PI / 180;
-          const φ2 = lat2 * Math.PI / 180;
-          const Δφ = (lat2 - lat1) * Math.PI / 180;
-          const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-          return R * c; // in meters
-        }
-
-        const demoIntersections = [
-          { name: "Chorraha A", lat: 40.386, lon: 71.782 },
-          { name: "Chorraha B", lat: 40.3875, lon: 71.780 },
-          {name:"Chorraha", lat: 40.532997, lon: 71.715274}
-        ];
-
-        const demoSigns = [
-          { name: "Stop", lat: 40.3861, lon: 71.7821 },
-          { name: "No Entry", lat: 40.3876, lon: 71.7801 },
-        ];
-
-        onMounted(() => {
-          map.value = L.map('map').setView([40.3864, 71.7821], 15);
-
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OSM contributors'
-          }).addTo(map.value);
-
-          userMarker.value = L.marker([40.3864, 71.7821]).addTo(map.value)
-            .bindPopup("Sizning joylashuvingiz").openPopup();
-
-          function updateUserLocation(pos) {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            userMarker.value.setLatLng([lat, lon]);
-            map.value.setView([lat, lon]);
-
-            // Yaqin chorrahani aniqlash
-            let closest = null;
-            let minDist = Infinity;
-            for (let i of demoIntersections) {
-              const dist = haversine(lat, lon, i.lat, i.lon);
-              if (dist < 200 && dist < minDist) {
-                closest = i;
-                minDist = dist;
-              }
-            }
-            nearestIntersection.value = closest ? closest.name : 'Topilmadi';
-
-            // Yaqin yo‘l belgilarini topish
-            roadSigns.value = demoSigns
-              .filter(s => haversine(lat, lon, s.lat, s.lon) < 150)
-              .map(s => s.name);
+        const proximityAlert = ref(false);
+        const nearestSign = ref(null);
+        const watchId = ref(null);
+        
+        // Yo'l belgilari ma'lumotlari
+        const roadSigns = [
+          {
+            id: 1,
+            name: "To'xtash belgisi",
+            description: "Harakatlanishni to'xtatishni talab qiladi",
+            type: "stop",
+            position: { lat: 41.311, lng: 69.243 }
+          },
+          {
+            id: 2,
+            name: "Piyodalar o'tish joyi",
+            description: "Piyodalar o'tish joyini ko'rsatadi",
+            type: "pedestrian",
+            position: { lat: 41.310, lng: 69.242 }
+          },
+          {
+            id: 3,
+            name: "Asosiy yo'l",
+            description: "Asosiy yo'lni ko'rsatadi",
+            type: "main_road",
+            position: { lat: 41.312, lng: 69.241 }
+          },
+          {
+            id: 4,
+            name: "Yo'l berish",
+            description: "Yo'l berish belgisi",
+            type: "yield",
+            position: { lat: 41.313, lng: 69.244 }
+          },
+          {
+            id: 5,
+            name: "Chorraha",
+            description: "Svetofor bilan boshqariladigan chorraha",
+            type: "intersection",
+            position: { lat: 41.309, lng: 69.245 }
           }
+        ];
 
-          navigator.geolocation.watchPosition(updateUserLocation);
+        // Belgi turlari uchun ikonalar
+        const signIcons = {
+          stop: L.divIcon({
+            className: 'sign-icon',
+            html: '<div style="background-color: red; border-radius: 50%; width: 20px; height: 20px;"></div>',
+            iconSize: [20, 20]
+          }),
+          pedestrian: L.divIcon({
+            className: 'sign-icon',
+            html: '<div style="background-color: blue; border-radius: 3px; width: 20px; height: 20px;"></div>',
+            iconSize: [20, 20]
+          }),
+          main_road: L.divIcon({
+            className: 'sign-icon',
+            html: '<div style="background-color: yellow; width: 20px; height: 20px; transform: rotate(45deg);"></div>',
+            iconSize: [20, 20]
+          }),
+          yield: L.divIcon({
+            className: 'sign-icon',
+            html: '<div style="border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 20px solid red;"></div>',
+            iconSize: [20, 20]
+          }),
+          intersection: L.divIcon({
+            className: 'sign-icon',
+            html: '<div style="background-color: green; width: 20px; height: 20px;"></div>',
+            iconSize: [20, 20]
+          })
+        };
+
+        // Kilometr masofani hisoblash
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+          const R = 6371; // Yer radiusi (km)
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLon = (lon2 - lon1) * Math.PI / 180;
+          const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          return R * c * 1000; // Metrda qaytarish
+        };
+
+        // Eng yaqin belgini topish
+        const findNearestSign = () => {
+          let minDistance = Infinity;
+          let closestSign = null;
+          
+          roadSigns.forEach(sign => {
+            const distance = calculateDistance(
+              userLocation.value.lat, 
+              userLocation.value.lng, 
+              sign.position.lat, 
+              sign.position.lng
+            );
+            
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestSign = { ...sign, distance };
+            }
+          });
+          
+          // Agar belgi 100 metr radiusda bo'lsa
+          if (minDistance <= 100) {
+            if (!proximityAlert.value || nearestSign.value?.id !== closestSign.id) {
+              showAlert(closestSign);
+              proximityAlert.value = true;
+              nearestSign.value = closestSign;
+            }
+          } else {
+            proximityAlert.value = false;
+            nearestSign.value = null;
+          }
+        };
+
+        // Ogohlantirish ko'rsatish
+        const showAlert = (sign) => {
+          selectedSign.value = sign;
+          
+          // Ogohlantirish ovozi (vibratsiya)
+          if ("vibrate" in navigator) {
+            navigator.vibrate(200);
+          }
+          
+          // Ovozli ogohlantirish
+          const msg = `Diqqat! ${sign.distance.toFixed(0)} metr masofada ${sign.name}`;
+          if ("speechSynthesis" in window) {
+            const speech = new SpeechSynthesisUtterance(msg);
+            speech.lang = 'uz-UZ';
+            window.speechSynthesis.speak(speech);
+          }
+        };
+
+        // Xaritani initsializatsiya qilish
+        const initMap = () => {
+          map.value = L.map('map').setView([userLocation.value.lat, userLocation.value.lng], 15);
+          
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map.value);
+          
+          // Foydalanuvchi joylashuvi markerini qo'shish
+          userMarker.value = L.marker([userLocation.value.lat, userLocation.value.lng], {
+            icon: L.divIcon({
+              className: 'user-location',
+              html: '<div style="background-color: #4285F4; border: 2px solid white; border-radius: 50%; width: 16px; height: 16px;"></div>',
+              iconSize: [16, 16]
+            })
+          }).addTo(map.value);
+          
+          // Yo'l belgilarini xaritaga joylashtirish
+          roadSigns.forEach(sign => {
+            const marker = L.marker([sign.position.lat, sign.position.lng], {
+              icon: signIcons[sign.type]
+            }).addTo(map.value);
+            
+            marker.on('click', () => {
+              selectedSign.value = sign;
+            });
+          });
+          
+          startLocationTracking();
+        };
+        
+        // Joylashuvni kuzatib borish
+        const startLocationTracking = () => {
+          if (navigator.geolocation) {
+            // Bir martalik joylashuvni aniqlash
+            navigator.geolocation.getCurrentPosition(position => {
+              updateUserLocation(position);
+            });
+            
+            // Doimiy kuzatib borish
+            watchId.value = navigator.geolocation.watchPosition(
+              updateUserLocation,
+              error => console.log("Geolocation error:", error),
+              { enableHighAccuracy: true }
+            );
+          }
+        };
+        
+        // Foydalanuvchi joylashuvini yangilash
+        const updateUserLocation = (position) => {
+          userLocation.value = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          
+          // Marker pozitsiyasini yangilash
+          if (userMarker.value) {
+            userMarker.value.setLatLng([userLocation.value.lat, userLocation.value.lng]);
+          }
+          
+          // Xaritani foydalanuvchi pozitsiyasiga ko'chirish
+          map.value.setView([userLocation.value.lat, userLocation.value.lng]);
+          
+          // Eng yaqin belgini tekshirish
+          findNearestSign();
+        };
+        
+        // Komponent yo'q qilinganda kuzatishni to'xtatish
+        const stopLocationTracking = () => {
+          if (watchId.value !== null) {
+            navigator.geolocation.clearWatch(watchId.value);
+          }
+        };
+        
+        onMounted(() => {
+          initMap();
         });
-
-        return { nearestIntersection, roadSigns };
+        
+        return {
+          title,
+          selectedSign,
+          proximityAlert,
+          nearestSign
+        };
       }
-    }).mount('#app');
+    });
+    
+    app.mount('#app');
   </script>
 </body>
 </html>
