@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yo'l Belgilari Monitoring</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .sidebar {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .mobile-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 100%;
+                max-width: 320px;
+                transform: translateX(-100%);
+                z-index: 1000;
+                padding: 80px 20px 20px 20px;
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .mobile-toggle {
+                display: block;
+            }
+            
+            .map-container {
+                height: 100vh;
+                width: 100%;
+            }
+            
+            .notification {
+                top: 80px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .sidebar {
+                max-width: 100%;
+                padding: 70px 15px 15px 15px;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .btn {
+                padding: 10px 15px;
+                font-size: 12px;
+                margin: 3px;
+            }
+            
+            .sign-item {
+                padding: 12px;
+                margin: 8px 0;
+            }
+            
+            .notification {
+                top: 70px;
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status.active {
+            background: linear-gradient(45deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .status.inactive {
+            background: linear-gradient(45deg, #fed7d7, #feb2b2);
+            color: #c53030;
+        }
+        
+        .nearby-signs {
+            margin-top: 20px;
+        }
+        
+        .nearby-signs h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .sign-item {
+            background: linear-gradient(45deg, #ffffff, #f7fafc);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .sign-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sign-item.warning {
+            border-left-color: #f56565;
+            background: linear-gradient(45deg, #fff5f5, #fed7d7);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .sign-type {
+            font-weight: 700;
+            color: #2d3748;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .sign-distance {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .sign-warning {
+            color: #e53e3e;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #f56565, #e53e3e);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(245, 101, 101, 0.3);
+            z-index: 1000;
+            animation: slideIn 0.5s ease-out;
+            max-width: 300px;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .speed-display {
+            background: linear-gradient(45deg, #4299e1, #3182ce);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 10px 0;
+            box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+        }
+        
+        .speed-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .car-icon {
+            position: absolute;
+            z-index: 1000;
+            font-size: 20px;
+            color: #e53e3e;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <button class="mobile-toggle" @click="toggleSidebar">
+            {{ sidebarOpen ? '✕' : '☰' }}
+        </button>
+        
+        <div class="app-container">
+            <div class="sidebar" :class="{ open: sidebarOpen }">
+                <div class="header">
+                    <h1>🚗 Yo'l Belgilari Monitor</h1>
+                    <p>Harakatdagi yo'l belgilarini kuzatish</p>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn" @click="startTracking" :disabled="isTracking">
+                        📍 Kuzatishni Boshlash
+                    </button>
+                    <button class="btn" @click="stopTracking" :disabled="!isTracking">
+                        ⏹️ To'xtatish
+                    </button>
+                </div>
+                
+                <div class="status" :class="isTracking ? 'active' : 'inactive'">
+                    {{ isTracking ? '🟢 Faol kuzatuv' : '🔴 Nofaol' }}
+                </div>
+                
+                <div class="speed-display" v-if="currentSpeed !== null">
+                    <div class="speed-value">{{ Math.round(currentSpeed) }} km/h</div>
+                    <div>Joriy tezlik</div>
+                </div>
+                
+                <div class="nearby-signs">
+                    <h3>🚧 Yaqin Yo'l Belgilari</h3>
+                    <div v-if="nearbySigns.length === 0" style="text-align: center; color: #718096; padding: 20px;">
+                        Yaqin atrofda yo'l belgilari topilmadi
+                    </div>
+                    <div 
+                        v-for="sign in nearbySigns" 
+                        :key="sign.id"
+                        class="sign-item"
+                        :class="{ 'warning': sign.distance < 100 }"
+                    >
+                        <div class="sign-type">{{ sign.type }}</div>
+                        <div class="sign-distance">📏 Masofa: {{ Math.round(sign.distance) }}m</div>
+                        <div v-if="sign.distance < 100" class="sign-warning">
+                            ⚠️ Yaqinlashmoqda!
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+        
+        <div v-if="alertMessage" class="notification">
+            {{ alertMessage }}
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    map: null,
+                    isTracking: false,
+                    currentPosition: null,
+                    currentSpeed: null,
+                    nearbySigns: [],
+                    sidebarOpen: false,
+                    roadSigns: [
+                        // Toshkent shahridagi ba'zi yo'l belgilari (namuna)
+                        { id: 1, lat: 41.2995, lng: 69.2401, type: "🚦 Svetofor", speedLimit: null },
+                        { id: 2, lat: 41.3111, lng: 69.2797, type: "⛽ Yoqilg'i quyish", speedLimit: null },
+                        { id: 3, lat: 41.2646, lng: 69.2163, type: "🏥 Kasalxona", speedLimit: null },
+                        { id: 4, lat: 41.3275, lng: 69.2714, type: "🚸 Maktab hududi", speedLimit: 30 },
+                        { id: 5, lat: 41.2856, lng: 69.2034, type: "🚧 Ta'mirlash ishlari", speedLimit: 40 },
+                        { id: 6, lat: 41.3067, lng: 69.2519, type: "📍 60 km/h chegara", speedLimit: 60 },
+                        { id: 7, lat: 41.2789, lng: 69.2456, type: "🔄 Aylanma yo'l", speedLimit: null },
+                        { id: 8, lat: 41.3198, lng: 69.2891, type: "🚫 O'tish taqiqlangan", speedLimit: null },
+                        { id: 9, lat: 41.2567, lng: 69.2298, type: "📍 40 km/h chegara", speedLimit: 40 },
+                        { id: 10, lat: 41.3456, lng: 69.2634, type: "🏪 Savdo markazi", speedLimit: null }
+                    ],
+                    userMarker: null,
+                    signMarkers: [],
+                    watchId: null,
+                    alertMessage: '',
+                    lastAlertTime: 0
+                }
+            },
+            
+            mounted() {
+                this.initMap();
+                this.addRoadSigns();
+            },
+            
+            methods: {
+                initMap() {
+                    // Toshkent markaziga yo'naltirilgan xarita
+                    this.map = L.map('map').setView([41.2995, 69.2401], 13);
+                    
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(this.map);
+                },
+                
+                addRoadSigns() {
+                    this.roadSigns.forEach(sign => {
+                        const marker = L.marker([sign.lat, sign.lng], {
+                            icon: L.divIcon({
+                                html: `<div style="background: white; border: 2px solid #667eea; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">${sign.type.split(' ')[0]}</div>`,
+                                className: 'road-sign-marker',
+                                iconSize: [30, 30],
+                                iconAnchor: [15, 15]
+                            })
+                        }).addTo(this.map);
+                        
+                        marker.bindPopup(`
+                            <div style="text-align: center; padding: 10px;">
+                                <strong>${sign.type}</strong><br>
+                                ${sign.speedLimit ? `Tezlik: ${sign.speedLimit} km/h` : 'Ma\'lumot belgisi'}
+                            </div>
+                        `);
+                        
+                        this.signMarkers.push(marker);
+                    });
+                },
+                
+                startTracking() {
+                    if (!navigator.geolocation) {
+                        this.showAlert('Geolokatsiya qo\'llab-quvvatlanmaydi!');
+                        return;
+                    }
+                    
+                    this.isTracking = true;
+                    
+                    const options = {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    };
+                    
+                    this.watchId = navigator.geolocation.watchPosition(
+                        this.updatePosition,
+                        this.handleError,
+                        options
+                    );
+                },
+                
+                stopTracking() {
+                    this.isTracking = false;
+                    if (this.watchId) {
+                        navigator.geolocation.clearWatch(this.watchId);
+                        this.watchId = null;
+                    }
+                    
+                    if (this.userMarker) {
+                        this.map.removeLayer(this.userMarker);
+                        this.userMarker = null;
+                    }
+                    
+                    this.nearbySigns = [];
+                    this.currentSpeed = null;
+                },
+                
+                updatePosition(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const speed = position.coords.speed ? position.coords.speed * 3.6 : 0; // m/s dan km/h ga
+                    
+                    this.currentPosition = { lat, lng };
+                    this.currentSpeed = speed;
+                    
+                    // Foydalanuvchi pozitsiyasini xaritada ko'rsatish
+                    if (this.userMarker) {
+                        this.userMarker.setLatLng([lat, lng]);
+                    } else {
+                        this.userMarker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                html: `<div class="car-icon">🚗</div>`,
+                                className: 'user-marker',
+                                iconSize: [30, 30],
+                                iconAnchor: [15, 15]
+                            })
+                        }).addTo(this.map);
+                    }
+                    
+                    // Xaritani foydalanuvchi pozitsiyasiga markazlashtirish
+                    this.map.setView([lat, lng], this.map.getZoom());
+                    
+                    // Yaqin yo'l belgilarini topish
+                    this.findNearbySigns();
+                },
+                
+                findNearbySigns() {
+                    if (!this.currentPosition) return;
+                    
+                    const nearby = [];
+                    const alertThreshold = 150; // 150 metr masofada ogohlantirish
+                    
+                    this.roadSigns.forEach(sign => {
+                        const distance = this.calculateDistance(
+                            this.currentPosition.lat,
+                            this.currentPosition.lng,
+                            sign.lat,
+                            sign.lng
+                        );
+                        
+                        if (distance <= 500) { // 500 metr radius
+                            nearby.push({
+                                ...sign,
+                                distance: distance
+                            });
+                            
+                            // Yaqinlashayotgan belgilar uchun ogohlantirish
+                            if (distance <= alertThreshold && Date.now() - this.lastAlertTime > 10000) {
+                                this.showAlert(`⚠️ ${sign.type} yaqinlashmoqda! (${Math.round(distance)}m)`);
+                                this.lastAlertTime = Date.now();
+                            }
+                            
+                            // Tezlik nazorati
+                            if (sign.speedLimit && this.currentSpeed > sign.speedLimit && distance <= 100) {
+                                this.showAlert(`🚨 Tezlik chegarasi: ${sign.speedLimit} km/h. Joriy: ${Math.round(this.currentSpeed)} km/h`);
+                            }
+                        }
+                    });
+                    
+                    // Masofaga qarab saralash
+                    this.nearbySigns = nearby.sort((a, b) => a.distance - b.distance);
+                },
+                
+                calculateDistance(lat1, lng1, lat2, lng2) {
+                    const R = 6371e3; // Yer radiusi metrda
+                    const φ1 = lat1 * Math.PI/180;
+                    const φ2 = lat2 * Math.PI/180;
+                    const Δφ = (lat2-lat1) * Math.PI/180;
+                    const Δλ = (lng2-lng1) * Math.PI/180;
+                    
+                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                              Math.cos(φ1) * Math.cos(φ2) *
+                              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    
+                    return R * c;
+                },
+                
+                handleError(error) {
+                    let message = 'Geolokatsiya xatosi: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            message += 'Ruxsat rad etildi';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            message += 'Pozitsiya aniqlanmadi';
+                            break;
+                        case error.TIMEOUT:
+                            message += 'Vaqt tugadi';
+                            break;
+                        default:
+                            message += 'Noma\'lum xato';
+                            break;
+                    }
+                    this.showAlert(message);
+                },
+                
+                showAlert(message) {
+                    this.alertMessage = message;
+                    setTimeout(() => {
+                        this.alertMessage = '';
+                    }, 5000);
+                },
+                
+                toggleSidebar() {
+                    this.sidebarOpen = !this.sidebarOpen;
+                }
+            },
+            
+            beforeUnmount() {
+                if (this.watchId) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
