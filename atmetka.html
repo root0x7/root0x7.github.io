@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geodezik Balandlik Xaritasi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            overflow-y: auto;
+        }
+        
+        .map-container {
+            flex: 1;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 15px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .controls {
+            margin-bottom: 25px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-clear {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        }
+        
+        .btn-clear:hover {
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .points-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .point-item {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .point-item:hover {
+            background: rgba(102, 126, 234, 0.15);
+            transform: translateX(5px);
+        }
+        
+        .point-info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .point-elevation {
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+        }
+        
+        .legend h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .status.active {
+            background: rgba(40, 167, 69, 0.2);
+            color: #155724;
+        }
+        
+        .status.inactive {
+            background: rgba(220, 53, 69, 0.2);
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="sidebar">
+                <div class="header">
+                    <h1>🗺️ Geodezik Xarita</h1>
+                </div>
+                
+                <div class="status" :class="addingMode ? 'active' : 'inactive'">
+                    {{ addingMode ? '📍 Nuqta qo\'shish rejimi faol' : '🖱️ Xaritada nuqta tanlang' }}
+                </div>
+                
+                <div class="controls">
+                    <button class="btn" @click="toggleAddingMode">
+                        {{ addingMode ? 'Rejimni o\'chirish' : 'Nuqta qo\'shish rejimini yoqish' }}
+                    </button>
+                    
+                    <div class="input-group" v-if="selectedPoint">
+                        <label>Balandlik (metr):</label>
+                        <input 
+                            type="number" 
+                            v-model="selectedElevation" 
+                            @keyup.enter="saveElevation"
+                            placeholder="Balandlikni kiriting..."
+                            step="0.1"
+                        >
+                        <button class="btn" @click="saveElevation" style="margin-top: 10px;">
+                            Balandlikni saqlash
+                        </button>
+                    </div>
+                    
+                    <button class="btn" @click="connectPoints">
+                        🔗 Bir xil balandlikdagi nuqtalarni ulash
+                    </button>
+                    
+                    <button class="btn btn-clear" @click="clearAll">
+                        🗑️ Barchasini tozalash
+                    </button>
+                </div>
+                
+                <div class="points-list" v-if="points.length > 0">
+                    <h3 style="color: #333; margin-bottom: 15px;">📋 Nuqtalar ro'yxati ({{ points.length }})</h3>
+                    <div 
+                        v-for="(point, index) in points" 
+                        :key="index"
+                        class="point-item"
+                        :style="{ borderLeftColor: getElevationColor(point.elevation) }"
+                        @click="focusPoint(point)"
+                    >
+                        <div class="point-info">
+                            Nuqta #{{ index + 1 }}: {{ point.lat.toFixed(6) }}, {{ point.lng.toFixed(6) }}
+                        </div>
+                        <div class="point-elevation" :style="{ color: getElevationColor(point.elevation) }">
+                            {{ point.elevation ? point.elevation + ' m' : 'Balandlik kiritilmagan' }}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="legend" v-if="elevationGroups.length > 0">
+                    <h3>🎨 Balandlik ranglari</h3>
+                    <div 
+                        v-for="(group, index) in elevationGroups" 
+                        :key="index"
+                        class="legend-item"
+                    >
+                        <div class="legend-color" :style="{ backgroundColor: group.color }"></div>
+                        <span>{{ group.elevation }} m ({{ group.count }} nuqta)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    map: null,
+                    points: [],
+                    selectedPoint: null,
+                    selectedElevation: null,
+                    addingMode: false,
+                    markers: [],
+                    polylines: [],
+                    colors: [
+                        '#e74c3c', '#3498db', '#2ecc71', '#f39c12', 
+                        '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
+                        '#f1c40f', '#95a5a6', '#e91e63', '#673ab7',
+                        '#ff5722', '#607d8b', '#4caf50', '#ff9800'
+                    ]
+                }
+            },
+            computed: {
+                elevationGroups() {
+                    const groups = {};
+                    this.points.forEach(point => {
+                        if (point.elevation !== null) {
+                            if (!groups[point.elevation]) {
+                                groups[point.elevation] = {
+                                    elevation: point.elevation,
+                                    count: 0,
+                                    color: this.getElevationColor(point.elevation)
+                                };
+                            }
+                            groups[point.elevation].count++;
+                        }
+                    });
+                    return Object.values(groups).sort((a, b) => a.elevation - b.elevation);
+                }
+            },
+            mounted() {
+                this.initMap();
+            },
+            methods: {
+                initMap() {
+                    // Toshkent markazida xaritani ishga tushirish
+                    this.map = L.map('map').setView([41.2995, 69.2401], 10);
+                    
+                    // OpenStreetMap qatlami
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(this.map);
+                    
+                    // Xaritada click hodisasi
+                    this.map.on('click', (e) => {
+                        if (this.addingMode) {
+                            this.addPoint(e.latlng.lat, e.latlng.lng);
+                        }
+                    });
+                },
+                
+                toggleAddingMode() {
+                    this.addingMode = !this.addingMode;
+                    this.selectedPoint = null;
+                    this.selectedElevation = null;
+                },
+                
+                addPoint(lat, lng) {
+                    const point = {
+                        lat: lat,
+                        lng: lng,
+                        elevation: null
+                    };
+                    
+                    this.points.push(point);
+                    this.selectedPoint = point;
+                    this.selectedElevation = null;
+                    
+                    // Xaritaga marker qo'shish
+                    const marker = L.circleMarker([lat, lng], {
+                        color: '#fff',
+                        fillColor: '#667eea',
+                        fillOpacity: 0.8,
+                        radius: 8,
+                        weight: 2
+                    }).addTo(this.map);
+                    
+                    marker.bindPopup(`
+                        <strong>Nuqta #${this.points.length}</strong><br>
+                        Kenglik: ${lat.toFixed(6)}<br>
+                        Uzunlik: ${lng.toFixed(6)}<br>
+                        <em>Balandlik kiritilmagan</em>
+                    `);
+                    
+                    this.markers.push(marker);
+                },
+                
+                saveElevation() {
+                    if (this.selectedPoint && this.selectedElevation !== null) {
+                        this.selectedPoint.elevation = parseFloat(this.selectedElevation);
+                        
+                        // Marker rangini yangilash
+                        const index = this.points.indexOf(this.selectedPoint);
+                        const marker = this.markers[index];
+                        const color = this.getElevationColor(this.selectedPoint.elevation);
+                        
+                        marker.setStyle({
+                            fillColor: color,
+                            color: '#fff'
+                        });
+                        
+                        // Popup matnini yangilash
+                        marker.setPopupContent(`
+                            <strong>Nuqta #${index + 1}</strong><br>
+                            Kenglik: ${this.selectedPoint.lat.toFixed(6)}<br>
+                            Uzunlik: ${this.selectedPoint.lng.toFixed(6)}<br>
+                            <strong style="color: ${color}">Balandlik: ${this.selectedPoint.elevation} m</strong>
+                        `);
+                        
+                        this.selectedPoint = null;
+                        this.selectedElevation = null;
+                    }
+                },
+                
+                getElevationColor(elevation) {
+                    if (elevation === null) return '#95a5a6';
+                    
+                    // Balandlik asosida rang berish
+                    const elevations = [...new Set(this.points
+                        .filter(p => p.elevation !== null)
+                        .map(p => p.elevation)
+                    )].sort((a, b) => a - b);
+                    
+                    const index = elevations.indexOf(elevation);
+                    return this.colors[index % this.colors.length];
+                },
+                
+                connectPoints() {
+                    // Avvalgi chiziqlarni tozalash
+                    this.polylines.forEach(line => this.map.removeLayer(line));
+                    this.polylines = [];
+                    
+                    // Balandlik bo'yicha guruhlashtirish
+                    const elevationGroups = {};
+                    this.points.forEach(point => {
+                        if (point.elevation !== null) {
+                            if (!elevationGroups[point.elevation]) {
+                                elevationGroups[point.elevation] = [];
+                            }
+                            elevationGroups[point.elevation].push(point);
+                        }
+                    });
+                    
+                    // Har bir balandlik guruhi uchun chiziq chizish
+                    Object.keys(elevationGroups).forEach(elevation => {
+                        const group = elevationGroups[elevation];
+                        if (group.length > 1) {
+                            const latlngs = group.map(point => [point.lat, point.lng]);
+                            const color = this.getElevationColor(parseFloat(elevation));
+                            
+                            const polyline = L.polyline(latlngs, {
+                                color: color,
+                                weight: 4,
+                                opacity: 0.8,
+                                smoothFactor: 1
+                            }).addTo(this.map);
+                            
+                            polyline.bindPopup(`
+                                <strong>Balandlik: ${elevation} m</strong><br>
+                                Ulangan nuqtalar: ${group.length}
+                            `);
+                            
+                            this.polylines.push(polyline);
+                        }
+                    });
+                },
+                
+                focusPoint(point) {
+                    const index = this.points.indexOf(point);
+                    const marker = this.markers[index];
+                    
+                    this.map.setView([point.lat, point.lng], 15);
+                    marker.openPopup();
+                },
+                
+                clearAll() {
+                    if (confirm('Barcha nuqtalar va chiziqlarni o\'chirishni xohlaysizmi?')) {
+                        // Markerlarni o'chirish
+                        this.markers.forEach(marker => this.map.removeLayer(marker));
+                        this.markers = [];
+                        
+                        // Chiziqlarni o'chirish
+                        this.polylines.forEach(line => this.map.removeLayer(line));
+                        this.polylines = [];
+                        
+                        // Ma'lumotlarni tozalash
+                        this.points = [];
+                        this.selectedPoint = null;
+                        this.selectedElevation = null;
+                        this.addingMode = false;
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
