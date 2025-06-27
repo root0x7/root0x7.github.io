@@ -25,7 +25,7 @@
         }
         
         .sidebar {
-            width: 300px;
+            width: 320px;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 15px;
@@ -128,6 +128,14 @@
             box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
         }
         
+        .btn-toggle {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+        
+        .btn-toggle:hover {
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+        
         .points-list {
             max-height: 300px;
             overflow-y: auto;
@@ -140,6 +148,7 @@
             margin-bottom: 8px;
             border-left: 4px solid;
             transition: all 0.3s ease;
+            cursor: pointer;
         }
         
         .point-item:hover {
@@ -203,6 +212,27 @@
             background: rgba(220, 53, 69, 0.2);
             color: #721c24;
         }
+        
+        .status.drag {
+            background: rgba(255, 193, 7, 0.2);
+            color: #856404;
+        }
+        
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .info-box {
+            background: rgba(23, 162, 184, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #0c5460;
+        }
     </style>
 </head>
 <body>
@@ -221,7 +251,6 @@
                     <button class="btn" @click="toggleAddingMode">
                         {{ addingMode ? 'Rejimni o\'chirish' : 'Nuqta qo\'shish rejimini yoqish' }}
                     </button>
-                    
                     <div class="input-group" v-if="selectedPoint">
                         <label>Balandlik (metr):</label>
                         <input 
@@ -232,12 +261,12 @@
                             step="0.1"
                         >
                         <button class="btn" @click="saveElevation" style="margin-top: 10px;">
-                            Balandlikni saqlash
+                            💾 Balandlikni saqlash
                         </button>
                     </div>
                     
-                    <button class="btn" @click="connectPoints">
-                        🔗 Bir xil balandlikdagi nuqtalarni ulash
+                    <button class="btn" @click="createPolygons">
+                        🔷 Bir xil balandlikdagi nuqtalardan poligon yasash
                     </button>
                     
                     <button class="btn btn-clear" @click="clearAll">
@@ -258,7 +287,7 @@
                             Nuqta #{{ index + 1 }}: {{ point.lat.toFixed(6) }}, {{ point.lng.toFixed(6) }}
                         </div>
                         <div class="point-elevation" :style="{ color: getElevationColor(point.elevation) }">
-                            {{ point.elevation ? point.elevation + ' m' : 'Balandlik kiritilmagan' }}
+                            {{ point.elevation !== null ? point.elevation + ' m' : 'Balandlik kiritilmagan' }}
                         </div>
                     </div>
                 </div>
@@ -294,7 +323,7 @@
                     selectedElevation: null,
                     addingMode: false,
                     markers: [],
-                    polylines: [],
+                    polygons: [],
                     colors: [
                         '#e74c3c', '#3498db', '#2ecc71', '#f39c12', 
                         '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
@@ -326,26 +355,59 @@
             },
             methods: {
                 initMap() {
-                    // Toshkent markazida xaritani ishga tushirish
                     this.map = L.map('map').setView([41.2995, 69.2401], 10);
                     
-                    // OpenStreetMap qatlami
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '© OpenStreetMap contributors'
                     }).addTo(this.map);
                     
-                    // Xaritada click hodisasi
                     this.map.on('click', (e) => {
-                        if (this.addingMode) {
+                        if (this.addingMode && !this.dragMode) {
                             this.addPoint(e.latlng.lat, e.latlng.lng);
                         }
                     });
                 },
                 
+                getStatusClass() {
+                    if (this.dragMode) return 'drag';
+                    return this.addingMode ? 'active' : 'inactive';
+                },
+                
+                getStatusText() {
+                    if (this.dragMode) return '🤏 Nuqtalarni siljitish rejimi faol';
+                    return this.addingMode ? '📍 Nuqta qo\'shish rejimi faol' : '🖱️ Xaritada nuqta tanlang';
+                },
+                
                 toggleAddingMode() {
                     this.addingMode = !this.addingMode;
+                    if (this.addingMode) {
+                        this.dragMode = false;
+                        this.setMarkersDraggable(false);
+                    }
                     this.selectedPoint = null;
                     this.selectedElevation = null;
+                },
+                
+                toggleDragMode() {
+                    this.dragMode = !this.dragMode;
+                    if (this.dragMode) {
+                        this.addingMode = false;
+                        this.setMarkersDraggable(true);
+                    } else {
+                        this.setMarkersDraggable(false);
+                    }
+                    this.selectedPoint = null;
+                    this.selectedElevation = null;
+                },
+                
+                setMarkersDraggable(draggable) {
+                    this.markers.forEach(marker => {
+                        if (draggable) {
+                            marker.dragging.enable();
+                        } else {
+                            marker.dragging.disable();
+                        }
+                    });
                 },
                 
                 addPoint(lat, lng) {
@@ -359,14 +421,25 @@
                     this.selectedPoint = point;
                     this.selectedElevation = null;
                     
-                    // Xaritaga marker qo'shish
-                    const marker = L.circleMarker([lat, lng], {
-                        color: '#fff',
-                        fillColor: '#667eea',
-                        fillOpacity: 0.8,
-                        radius: 8,
-                        weight: 2
+                    const marker = L.marker([lat, lng], {
+                        draggable: this.dragMode
                     }).addTo(this.map);
+                    
+                    // Marker stilini o'zgartirish
+                    marker.setIcon(L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="
+                            width: 16px; 
+                            height: 16px; 
+                            background-color: #667eea; 
+                            border: 3px solid white; 
+                            border-radius: 50%; 
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                            cursor: ${this.dragMode ? 'move' : 'pointer'};
+                        "></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    }));
                     
                     marker.bindPopup(`
                         <strong>Nuqta #${this.points.length}</strong><br>
@@ -375,6 +448,39 @@
                         <em>Balandlik kiritilmagan</em>
                     `);
                     
+                    // Drag hodisasini qo'shish
+                    marker.on('dragstart', (e) => {
+                        // Drag boshlanayotganda barcha poligonlarni tozalash
+                        this.clearPolygons();
+                    });
+                    
+                    marker.on('dragend', (e) => {
+                        const newLatLng = e.target.getLatLng();
+                        const pointIndex = this.markers.indexOf(marker);
+                        
+                        if (pointIndex !== -1) {
+                            this.points[pointIndex].lat = newLatLng.lat;
+                            this.points[pointIndex].lng = newLatLng.lng;
+                            
+                            // Popup matnini yangilash
+                            const point = this.points[pointIndex];
+                            marker.setPopupContent(`
+                                <strong>Nuqta #${pointIndex + 1}</strong><br>
+                                Kenglik: ${point.lat.toFixed(6)}<br>
+                                Uzunlik: ${point.lng.toFixed(6)}<br>
+                                ${point.elevation !== null ? 
+                                    `<strong style="color: ${this.getElevationColor(point.elevation)}">Balandlik: ${point.elevation} m</strong>` : 
+                                    '<em>Balandlik kiritilmagan</em>'
+                                }
+                            `);
+                            
+                            // Poligonlarni qayta yaratish
+                            setTimeout(() => {
+                                this.createPolygons();
+                            }, 100);
+                        }
+                    });
+                    
                     this.markers.push(marker);
                 },
                 
@@ -382,17 +488,26 @@
                     if (this.selectedPoint && this.selectedElevation !== null) {
                         this.selectedPoint.elevation = parseFloat(this.selectedElevation);
                         
-                        // Marker rangini yangilash
                         const index = this.points.indexOf(this.selectedPoint);
                         const marker = this.markers[index];
                         const color = this.getElevationColor(this.selectedPoint.elevation);
                         
-                        marker.setStyle({
-                            fillColor: color,
-                            color: '#fff'
-                        });
+                        // Marker ikonasini yangilash
+                        marker.setIcon(L.divIcon({
+                            className: 'custom-div-icon',
+                            html: `<div style="
+                                width: 16px; 
+                                height: 16px; 
+                                background-color: ${color}; 
+                                border: 3px solid white; 
+                                border-radius: 50%; 
+                                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                cursor: ${this.dragMode ? 'move' : 'pointer'};
+                            "></div>`,
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8]
+                        }));
                         
-                        // Popup matnini yangilash
                         marker.setPopupContent(`
                             <strong>Nuqta #${index + 1}</strong><br>
                             Kenglik: ${this.selectedPoint.lat.toFixed(6)}<br>
@@ -408,7 +523,6 @@
                 getElevationColor(elevation) {
                     if (elevation === null) return '#95a5a6';
                     
-                    // Balandlik asosida rang berish
                     const elevations = [...new Set(this.points
                         .filter(p => p.elevation !== null)
                         .map(p => p.elevation)
@@ -418,10 +532,19 @@
                     return this.colors[index % this.colors.length];
                 },
                 
-                connectPoints() {
-                    // Avvalgi chiziqlarni tozalash
-                    this.polylines.forEach(line => this.map.removeLayer(line));
-                    this.polylines = [];
+                clearPolygons() {
+                    // Barcha poligonlarni xaritadan olib tashlash
+                    this.polygons.forEach(polygon => {
+                        if (this.map.hasLayer(polygon)) {
+                            this.map.removeLayer(polygon);
+                        }
+                    });
+                    this.polygons = [];
+                },
+                
+                createPolygons() {
+                    // Avval barcha poligonlarni tozalash
+                    this.clearPolygons();
                     
                     // Balandlik bo'yicha guruhlashtirish
                     const elevationGroups = {};
@@ -434,26 +557,29 @@
                         }
                     });
                     
-                    // Har bir balandlik guruhi uchun chiziq chizish
+                    // Har bir balandlik guruhi uchun poligon yasash
                     Object.keys(elevationGroups).forEach(elevation => {
                         const group = elevationGroups[elevation];
-                        if (group.length > 1) {
+                        if (group.length >= 3) { // Poligon uchun kamida 3 ta nuqta kerak
                             const latlngs = group.map(point => [point.lat, point.lng]);
                             const color = this.getElevationColor(parseFloat(elevation));
                             
-                            const polyline = L.polyline(latlngs, {
+                            const polygon = L.polygon(latlngs, {
                                 color: color,
-                                weight: 4,
+                                weight: 3,
                                 opacity: 0.8,
-                                smoothFactor: 1
+                                fillColor: color,
+                                fillOpacity: 0.2
                             }).addTo(this.map);
                             
-                            polyline.bindPopup(`
+                            polygon.bindPopup(`
+                                <strong>🔷 Poligon</strong><br>
                                 <strong>Balandlik: ${elevation} m</strong><br>
-                                Ulangan nuqtalar: ${group.length}
+                                Nuqtalar soni: ${group.length}<br>
+                                Maydon: ${(L.GeometryUtil.geodesicArea(polygon.getLatLngs()[0]) / 1000000).toFixed(2)} km²
                             `);
                             
-                            this.polylines.push(polyline);
+                            this.polygons.push(polygon);
                         }
                     });
                 },
@@ -467,20 +593,17 @@
                 },
                 
                 clearAll() {
-                    if (confirm('Barcha nuqtalar va chiziqlarni o\'chirishni xohlaysizmi?')) {
-                        // Markerlarni o'chirish
+                    if (confirm('Barcha nuqtalar va poligonlarni o\'chirishni xohlaysizmi?')) {
                         this.markers.forEach(marker => this.map.removeLayer(marker));
                         this.markers = [];
                         
-                        // Chiziqlarni o'chirish
-                        this.polylines.forEach(line => this.map.removeLayer(line));
-                        this.polylines = [];
+                        this.clearPolygons();
                         
-                        // Ma'lumotlarni tozalash
                         this.points = [];
                         this.selectedPoint = null;
                         this.selectedElevation = null;
                         this.addingMode = false;
+                        this.dragMode = false;
                     }
                 }
             }
