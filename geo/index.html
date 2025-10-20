@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geodezik Nuqtalar Vizualizatori</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        #app {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .controls {
+            padding: 25px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .options {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .view-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .view-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .view-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .canvas-container {
+            padding: 30px;
+            background: #ffffff;
+            min-height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        canvas {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        #three-container {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: linear-gradient(to bottom, #e3f2fd 0%, #ffffff 100%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .stats {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .stat-item h3 {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-item p {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #6c757d;
+            padding: 60px 20px;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .controls-hint {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            margin-top: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #495057;
+        }
+
+        .controls-hint strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="header">
+                <h1>🗺️ Geodezik Nuqtalar Vizualizatori</h1>
+                <p>Elektron teodolit ma'lumotlarini yuklang va vizualizatsiya qiling</p>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Ma'lumotlarni kiriting yoki fayldan yuklang:</label>
+                    <textarea 
+                        v-model="inputData" 
+                        @input="parseData"
+                        placeholder="t1,8000.000,4000.000,100.000,&#10;1,7999.652,4005.589,99.994,&#10;2,8004.525,4003.493,99.990,&#10;...">
+                    </textarea>
+                </div>
+
+                <div>
+                    <label for="file-upload" class="btn btn-primary">
+                        📁 Fayl yuklash
+                    </label>
+                    <input id="file-upload" type="file" class="file-input" @change="handleFile" accept=".csv,.txt">
+                    <button class="btn btn-secondary" @click="exportData" v-if="points.length > 0">
+                        💾 Eksport
+                    </button>
+                </div>
+
+                <div class="view-buttons">
+                    <button 
+                        class="view-btn" 
+                        :class="{ active: viewMode === '2d-xy' }"
+                        @click="setViewMode('2d-xy')">
+                        XY Ko'rinish
+                    </button>
+                    <button 
+                        class="view-btn" 
+                        :class="{ active: viewMode === '2d-xz' }"
+                        @click="setViewMode('2d-xz')">
+                        XZ Ko'rinish
+                    </button>
+                    <button 
+                        class="view-btn" 
+                        :class="{ active: viewMode === '3d' }"
+                        @click="setViewMode('3d')">
+                        🎮 3D Ko'rinish
+                    </button>
+                </div>
+
+                <div class="options" v-if="viewMode !== '3d'">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="labels" v-model="showLabels" @change="draw">
+                        <label for="labels">Yorliqlarni ko'rsatish</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="grid" v-model="showGrid" @change="draw">
+                        <label for="grid">Gridni ko'rsatish</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="lines" v-model="connectLines" @change="draw">
+                        <label for="lines">Chiziqlarni bog'lash</label>
+                    </div>
+                </div>
+
+                <div class="controls-hint" v-if="viewMode === '3d' && points.length > 0">
+                    <strong>🎮 Boshqaruv:</strong> Sichqoncha bilan aylantirib ko'ring, scroll qiling yoki sichqonchani bosib torting
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas ref="canvas" width="1000" height="600" v-if="points.length > 0 && viewMode !== '3d'"></canvas>
+                <div id="three-container" ref="threeContainer" v-if="points.length > 0 && viewMode === '3d'"></div>
+                <div class="empty-state" v-if="points.length === 0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path>
+                        <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z"></path>
+                    </svg>
+                    <h2>Ma'lumot topilmadi</h2>
+                    <p>Yuqoridagi maydonga ma'lumotlarni kiriting yoki fayl yuklang</p>
+                </div>
+            </div>
+
+            <div class="stats" v-if="points.length > 0">
+                <div class="stat-item">
+                    <h3>Nuqtalar soni</h3>
+                    <p>{{ points.length }}</p>
+                </div>
+                <div class="stat-item">
+                    <h3>X oralig'i</h3>
+                    <p>{{ stats.xRange.toFixed(3) }} m</p>
+                </div>
+                <div class="stat-item">
+                    <h3>Y oralig'i</h3>
+                    <p>{{ stats.yRange.toFixed(3) }} m</p>
+                </div>
+                <div class="stat-item">
+                    <h3>Z oralig'i</h3>
+                    <p>{{ stats.zRange.toFixed(3) }} m</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    inputData: '',
+                    points: [],
+                    viewMode: '2d-xy',
+                    showLabels: true,
+                    showGrid: true,
+                    connectLines: false,
+                    scene: null,
+                    camera: null,
+                    renderer: null,
+                    animationId: null,
+                    isDragging: false,
+                    previousMousePosition: { x: 0, y: 0 },
+                    cameraRotation: { x: 0, y: 0 }
+                };
+            },
+            computed: {
+                stats() {
+                    if (this.points.length === 0) return { xRange: 0, yRange: 0, zRange: 0 };
+                    
+                    const xs = this.points.map(p => p.x);
+                    const ys = this.points.map(p => p.y);
+                    const zs = this.points.map(p => p.z);
+                    
+                    return {
+                        xRange: Math.max(...xs) - Math.min(...xs),
+                        yRange: Math.max(...ys) - Math.min(...ys),
+                        zRange: Math.max(...zs) - Math.min(...zs)
+                    };
+                }
+            },
+            mounted() {
+                const sampleData = `t1,8000.000,4000.000,100.000,
+1,7999.652,4005.589,99.994,
+2,8004.525,4003.493,99.990,
+T2,8000.000,4004.743,99.999,
+T3,8004.712,3998.862,99.982,
+RP1,8004.592,4003.520,100.459,
+RP2,8003.827,4001.642,100.434,
+RP3,8002.547,3998.652,100.410,
+T4,7999.992,4004.735,100.013,
+RP4,7997.357,4000.116,99.978,
+3,8002.222,3998.019,99.994,`;
+                this.inputData = sampleData;
+                this.parseData();
+            },
+            beforeUnmount() {
+                this.cleanup3D();
+            },
+            methods: {
+                parseData() {
+                    if (!this.inputData.trim()) {
+                        this.points = [];
+                        return;
+                    }
+
+                    const lines = this.inputData.trim().split('\n');
+                    this.points = lines.map(line => {
+                        const parts = line.split(',').map(p => p.trim());
+                        return {
+                            name: parts[0],
+                            x: parseFloat(parts[1]),
+                            y: parseFloat(parts[2]),
+                            z: parseFloat(parts[3])
+                        };
+                    }).filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z));
+
+                    this.$nextTick(() => {
+                        if (this.viewMode === '3d') {
+                            this.init3D();
+                        } else {
+                            this.draw();
+                        }
+                    });
+                },
+                handleFile(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.inputData = e.target.result;
+                            this.parseData();
+                        };
+                        reader.readAsText(file);
+                    }
+                },
+                exportData() {
+                    const csv = this.points.map(p => 
+                        `${p.name},${p.x},${p.y},${p.z}`
+                    ).join('\n');
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'geodezik_nuqtalar.csv';
+                    a.click();
+                },
+                setViewMode(mode) {
+                    this.viewMode = mode;
+                    this.$nextTick(() => {
+                        if (mode === '3d') {
+                            this.init3D();
+                        } else {
+                            this.cleanup3D();
+                            this.draw();
+                        }
+                    });
+                },
+                cleanup3D() {
+                    if (this.animationId) {
+                        cancelAnimationFrame(this.animationId);
+                        this.animationId = null;
+                    }
+                    if (this.renderer) {
+                        this.renderer.dispose();
+                        this.renderer = null;
+                    }
+                    this.scene = null;
+                    this.camera = null;
+                },
+                init3D() {
+                    this.cleanup3D();
+                    
+                    if (this.points.length === 0) return;
+
+                    const container = this.$refs.threeContainer;
+                    if (!container) return;
+
+                    // Scene
+                    this.scene = new THREE.Scene();
+                    this.scene.background = new THREE.Color(0xe3f2fd);
+
+                    // Camera
+                    const width = container.clientWidth;
+                    const height = container.clientHeight;
+                    this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                    
+                    // Renderer
+                    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                    this.renderer.setSize(width, height);
+                    container.innerHTML = '';
+                    container.appendChild(this.renderer.domElement);
+
+                    // Get bounds
+                    const xs = this.points.map(p => p.x);
+                    const ys = this.points.map(p => p.y);
+                    const zs = this.points.map(p => p.z);
+
+                    const minX = Math.min(...xs);
+                    const maxX = Math.max(...xs);
+                    const minY = Math.min(...ys);
+                    const maxY = Math.max(...ys);
+                    const minZ = Math.min(...zs);
+                    const maxZ = Math.max(...zs);
+
+                    const centerX = (minX + maxX) / 2;
+                    const centerY = (minY + maxY) / 2;
+                    const centerZ = (minZ + maxZ) / 2;
+
+                    const rangeX = maxX - minX || 1;
+                    const rangeY = maxY - minY || 1;
+                    const rangeZ = maxZ - minZ || 1;
+                    const maxRange = Math.max(rangeX, rangeY, rangeZ);
+
+                    // Add lights
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                    this.scene.add(ambientLight);
+
+                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                    directionalLight.position.set(10, 10, 10);
+                    this.scene.add(directionalLight);
+
+                    // Add grid
+                    const gridHelper = new THREE.GridHelper(maxRange * 1.5, 20, 0x667eea, 0xcccccc);
+                    gridHelper.position.y = (minZ - centerZ) / maxRange * 10;
+                    this.scene.add(gridHelper);
+
+                    // Add axes
+                    const axesHelper = new THREE.AxesHelper(maxRange * 0.8);
+                    this.scene.add(axesHelper);
+
+                    // Add points
+                    this.points.forEach(point => {
+                        // Sphere for point
+                        const geometry = new THREE.SphereGeometry(0.15, 16, 16);
+                        const material = new THREE.MeshPhongMaterial({ 
+                            color: 0x667eea,
+                            emissive: 0x667eea,
+                            emissiveIntensity: 0.2
+                        });
+                        const sphere = new THREE.Mesh(geometry, material);
+                        
+                        const x = (point.x - centerX) / maxRange * 10;
+                        const y = (point.z - centerZ) / maxRange * 10;
+                        const z = -(point.y - centerY) / maxRange * 10;
+                        
+                        sphere.position.set(x, y, z);
+                        this.scene.add(sphere);
+
+                        // Label
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = 256;
+                        canvas.height = 128;
+                        context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        context.fillRect(0, 0, canvas.width, canvas.height);
+                        context.font = 'bold 24px Arial';
+                        context.fillStyle = '#212529';
+                        context.textAlign = 'center';
+                        context.fillText(point.name, 128, 50);
+                        context.font = '16px Arial';
+                        context.fillStyle = '#6c757d';
+                        context.fillText(`${point.x.toFixed(1)}, ${point.y.toFixed(1)}`, 128, 80);
+                        context.fillText(`Z: ${point.z.toFixed(2)}`, 128, 105);
+
+                        const texture = new THREE.CanvasTexture(canvas);
+                        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                        const sprite = new THREE.Sprite(spriteMaterial);
+                        sprite.position.set(x, y + 0.5, z);
+                        sprite.scale.set(2, 1, 1);
+                        this.scene.add(sprite);
+                    });
+
+                    // Connect lines
+                    if (this.points.length > 1) {
+                        const lineGeometry = new THREE.BufferGeometry();
+                        const positions = [];
+                        
+                        this.points.forEach(point => {
+                            const x = (point.x - centerX) / maxRange * 10;
+                            const y = (point.z - centerZ) / maxRange * 10;
+                            const z = -(point.y - centerY) / maxRange * 10;
+                            positions.push(x, y, z);
+                        });
+                        
+                        lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                        const lineMaterial = new THREE.LineBasicMaterial({ 
+                            color: 0x667eea,
+                            opacity: 0.5,
+                            transparent: true,
+                            linewidth: 2
+                        });
+                        const line = new THREE.Line(lineGeometry, lineMaterial);
+                        this.scene.add(line);
+                    }
+
+                    // Set camera position
+                    this.camera.position.set(15, 10, 15);
+                    this.camera.lookAt(0, 0, 0);
+
+                    // Mouse controls
+                    let mouseDown = false;
+                    let mouseX = 0;
+                    let mouseY = 0;
+
+                    this.renderer.domElement.addEventListener('mousedown', (e) => {
+                        mouseDown = true;
+                        mouseX = e.clientX;
+                        mouseY = e.clientY;
+                    });
+
+                    this.renderer.domElement.addEventListener('mousemove', (e) => {
+                        if (mouseDown) {
+                            const deltaX = e.clientX - mouseX;
+                            const deltaY = e.clientY - mouseY;
+                            
+                            const radius = Math.sqrt(
+                                this.camera.position.x ** 2 + 
+                                this.camera.position.z ** 2
+                            );
+                            
+                            const angle = Math.atan2(this.camera.position.z, this.camera.position.x);
+                            const newAngle = angle + deltaX * 0.01;
+                            
+                            this.camera.position.x = radius * Math.cos(newAngle);
+                            this.camera.position.z = radius * Math.sin(newAngle);
+                            this.camera.position.y += deltaY * 0.05;
+                            
+                            this.camera.lookAt(0, 0, 0);
+                            
+                            mouseX = e.clientX;
+                            mouseY = e.clientY;
+                        }
+                    });
+
+                    this.renderer.domElement.addEventListener('mouseup', () => {
+                        mouseDown = false;
+                    });
+
+                    this.renderer.domElement.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        const delta = e.deltaY > 0 ? 1.1 : 0.9;
+                        this.camera.position.multiplyScalar(delta);
+                    });
+
+                    // Animation loop
+                    const animate = () => {
+                        this.animationId = requestAnimationFrame(animate);
+                        this.renderer.render(this.scene, this.camera);
+                    };
+                    animate();
+                },
+                draw() {
+                    if (this.points.length === 0) return;
+
+                    const canvas = this.$refs.canvas;
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    const padding = 80;
+
+                    ctx.clearRect(0, 0, w, h);
+
+                    const xs = this.points.map(p => p.x);
+                    const ys = this.points.map(p => p.y);
+                    const zs = this.points.map(p => p.z);
+
+                    const minX = Math.min(...xs);
+                    const maxX = Math.max(...xs);
+                    const minY = Math.min(...ys);
+                    const maxY = Math.max(...ys);
+                    const minZ = Math.min(...zs);
+                    const maxZ = Math.max(...zs);
+
+                    const rangeX = maxX - minX || 1;
+                    const rangeY = maxY - minY || 1;
+                    const rangeZ = maxZ - minZ || 1;
+
+                    const toScreen = (x, y, z) => {
+                        if (this.viewMode === '2d-xy') {
+                            return {
+                                x: padding + (x - minX) / rangeX * (w - 2 * padding),
+                                y: h - padding - (y - minY) / rangeY * (h - 2 * padding)
+                            };
+                        } else {
+                            return {
+                                x: padding + (x - minX) / rangeX * (w - 2 * padding),
+                                y: h - padding - (z - minZ) / rangeZ * (h - 2 * padding)
+                            };
+                        }
+                    };
+
+                    if (this.showGrid) {
+                        ctx.strokeStyle = '#e9ecef';
+                        ctx.lineWidth = 1;
+                        
+                        for (let i = 0; i <= 10; i++) {
+                            const ratio = i / 10;
+                            const x = padding + ratio * (w - 2 * padding);
+                            const y = padding + ratio * (h - 2 * padding);
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(x, padding);
+                            ctx.lineTo(x, h - padding);
+                            ctx.stroke();
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(padding, y);
+                            ctx.lineTo(w - padding, y);
+                            ctx.stroke();
+                        }
+                    }
+
+                    if (this.connectLines && this.points.length > 1) {
+                        ctx.strokeStyle = '#667eea';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        
+                        ctx.beginPath();
+                        for (let i = 0; i < this.points.length; i++) {
+                            const p = this.points[i];
+                            const pos = toScreen(p.x, p.y, p.z);
+                            if (i === 0) {
+                                ctx.moveTo(pos.x, pos.y);
+                            } else {
+                                ctx.lineTo(pos.x, pos.y);
+                            }
+                        }
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    this.points.forEach((point) => {
+                        const pos = toScreen(point.x, point.y, point.z);
+                        
+                        ctx.fillStyle = '#667eea';
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                        if (this.showLabels) {
+                            ctx.fillStyle = '#212529';
+                            ctx.font = 'bold 12px Arial';
+                            ctx.textAlign = 'left';
+                            ctx.fillText(point.name, pos.x + 10, pos.y - 10);
+                            
+                            ctx.font = '10px Arial';
+                            ctx.fillStyle = '#6c757d';
+                            const coordText = this.viewMode === '2d-xy' 
+                                ? `(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`
+                                : `(${point.x.toFixed(2)}, ${point.z.toFixed(2)})`;
+                            ctx.fillText(coordText, pos.x + 10, pos.y + 5);
+                        }
+                    });
+
+                    ctx.fillStyle = '#495057';
+                    ctx.font = 'bold 14px Arial';
+                    
+                    if (this.viewMode === '2d-xy') {
+                        ctx.fillText('X', w - padding + 10, h - padding + 5);
+                        ctx.fillText('Y', padding - 5, padding - 10);
+                    } else {
+                        ctx.fillText('X', w - padding + 10, h - padding + 5);
+                        ctx.fillText('Z', padding - 5, padding - 10);
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
