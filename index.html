@@ -1,88 +1,748 @@
 <!DOCTYPE html>
-<html lang="zxx">
-
+<html lang="en">
 <head>
-	<!-- Meta -->
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DMS → Decimal Degrees</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-	<!-- Favicon -->
-	<link rel="shortcut icon" href="image/favicon.ico" type="image/x-icon">
-	<link rel="icon" href="image/favicon.ico" type="image/x-icon">
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1b1f2b;
+    --border: #252a38;
+    --border-glow: #3b4568;
+    --accent: #5b8cff;
+    --accent2: #a78bfa;
+    --accent-dim: rgba(91,140,255,0.12);
+    --error: #ff5e72;
+    --error-dim: rgba(255,94,114,0.1);
+    --success: #34d399;
+    --success-dim: rgba(52,211,153,0.1);
+    --text: #e8eaf0;
+    --text-muted: #6b7399;
+    --text-dim: #3d4562;
+    --grid: rgba(255,255,255,0.025);
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
 
-	<!-- Icons -->
-	<link rel="stylesheet" type="text/css" href="css/pe-icon-7-stroke.css">
-	<link rel="stylesheet" type="text/css" href="css/pe-helper.css">
-	<link rel="stylesheet" href="css/bootstrap-icons.css">
-	<link rel="stylesheet" type="text/css" href="css/all.min.css">
+  html, body { height: 100%; }
 
-	<!-- Fonts -->
-	<link rel="preconnect" href="https://fonts.googleapis.com/">
-	<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&amp;family=Poppins:wght@700;900&amp;display=swap" rel="stylesheet">
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-	<!-- CSS -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/swiper-bundle.min.css">
-    <link rel="stylesheet" href="css/leaflet.css">
-    <link rel="stylesheet" href="css/aos.css">
-    <link rel="stylesheet" type="text/css" href="css/style.css">
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
 
-    <title>Portfolio</title>
+  /* Glow orbs */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 500px;
+    background: radial-gradient(ellipse at center, rgba(91,140,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .header-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .header-eyebrow::before,
+  .header-eyebrow::after {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent));
+  }
+  .header-eyebrow::after { transform: scaleX(-1); }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(32px, 6vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    background: linear-gradient(135deg, #fff 30%, var(--accent2) 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 14px;
+  }
+
+  .header-sub {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+  /* PANELS */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 640px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .panel:focus-within { border-color: var(--border-glow); }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .panel-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .panel-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 100px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(91,140,255,0.2);
+    transition: all 0.3s;
+  }
+  .panel-badge.has-errors {
+    background: var(--error-dim);
+    color: var(--error);
+    border-color: rgba(255,94,114,0.2);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 280px;
+    padding: 18px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 300;
+    line-height: 1.8;
+    color: var(--text);
+    caret-color: var(--accent);
+  }
+  textarea::placeholder { color: var(--text-dim); }
+
+  /* Output lines */
+  .output-body {
+    padding: 18px;
+    min-height: 280px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 300;
+    line-height: 1.8;
+  }
+
+  .output-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 2px 0;
+    animation: fadeSlide 0.2s ease both;
+  }
+
+  .output-line-num {
+    color: var(--text-dim);
+    font-size: 11px;
+    min-width: 20px;
+    text-align: right;
+    padding-top: 1px;
+    user-select: none;
+  }
+
+  .output-line-value {
+    color: var(--success);
+  }
+
+  .output-line-error {
+    color: var(--error);
+    background: var(--error-dim);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border-left: 2px solid var(--error);
+  }
+
+  .output-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-dim);
+    gap: 12px;
+  }
+  .output-empty svg { opacity: 0.3; }
+  .output-empty span { font-size: 12px; font-family: var(--mono); letter-spacing: 0.1em; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 4px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .stat-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .stat-dot.green { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .stat-dot.red   { background: var(--error);   box-shadow: 0 0 6px var(--error); }
+  .stat-val {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  /* ACTIONS */
+  .actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    transition: all 0.18s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.18s;
+  }
+  .btn:hover::before { background: rgba(255,255,255,0.06); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(91,140,255,0.3);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 6px 28px rgba(91,140,255,0.45);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border-glow); }
+
+  .btn-success {
+    background: var(--success-dim);
+    color: var(--success);
+    border: 1px solid rgba(52,211,153,0.25);
+  }
+
+  /* COPY FEEDBACK */
+  .copy-flash {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: var(--surface2);
+    border: 1px solid var(--border-glow);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+    pointer-events: none;
+    z-index: 100;
+  }
+  .copy-flash.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* FORMAT HINT */
+  .format-hint {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .format-hint-icon { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+  .format-hint-content { flex: 1; }
+  .format-hint-title {
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .format-hint-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .format-hint-example {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface2);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  /* Divider */
+  .divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    margin: 0 2px;
+  }
+
+  .ml-auto { margin-left: auto; }
+</style>
 </head>
-<body data-bs-spy="scroll" data-bs-target="#site-navbar" class="home-programmer dark-mode">
+<body>
+<div id="app">
 
-	<!-- PRE LOADER -->
-	<div class="preloader js-preloader flex-center"> 
-		<div class="dots">
-			<div class="dot"></div>
-			<div class="dot"></div>
-			<div class="dot"></div>
-		</div>
-	</div>
+  <header class="header">
+    <div class="header-eyebrow">Coordinate Converter</div>
+    <h1>DMS → Decimal</h1>
+    <p class="header-sub">Degrees · Minutes · Seconds &nbsp;/&nbsp; Bulk conversion</p>
+  </header>
 
-	<!-- HERO AREA -->
-	<section class="hero-area" id="hero-area">
-		<div class="container">
-			<div class="hero-content d-flex justify-content-center">
-				<div class="row d-flex align-items-center justify-content-center">
+  <div class="format-hint">
+    <div class="format-hint-icon">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <div class="format-hint-content">
+      <div class="format-hint-title">Supported formats</div>
+      <div class="format-hint-examples">
+        <span class="format-hint-example">40°35'59.99"N 71°47'4.01"E</span>
+        <span class="format-hint-example">40°36'0.01"N 71°47'7.52"W</span>
+        <span class="format-hint-example">40°35'59"S 71°47'4"W</span>
+        <span class="format-hint-example">Supports N/S/E/W + Cyrillic С/В</span>
+      </div>
+    </div>
+  </div>
 
-					<div class="col-xl-10 text-center content-block">
+  <div class="panels">
+    <!-- INPUT -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Input · DMS</span>
+        <span class="panel-badge" :class="{ 'has-errors': errorCount > 0 }">
+          {{ lines.length }} line{{ lines.length !== 1 ? 's' : '' }}
+        </span>
+      </div>
+      <textarea
+        v-model="inputText"
+        placeholder="40°35'59.99&quot;N 71°47'4.01&quot;E&#10;40°36'0.01&quot;N 71°47'7.52&quot;W&#10;55°45'7&quot;С 37°37'4&quot;В"
+        spellcheck="false"
+        @input="liveConvert"
+      ></textarea>
+    </div>
 
-						<h1 class="hero-head"><small>Salom, man</small>Sobirjonov <strong>Xurshidbek</strong></h1>
-						<p>
-							<strong>computer science ga qiziquvchi va doimiy o'rganish olib boradigan oddiy qishloq bolasiman</strong>
-							<!-- <span class="typer" id="main" data-words="C++, Javascript, Python" data-delay="100" data-deleteDelay="1000"></span> -->
-							<span class="cursor" data-owner="main"></span>
-						</p>
-					</div>
+    <!-- OUTPUT -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Output · Decimal</span>
+        <span class="panel-badge" :class="{ 'has-errors': errorCount > 0 }">
+          {{ validCount }} valid
+        </span>
+      </div>
+      <div class="output-body">
+        <template v-if="results.length > 0">
+          <div
+            class="output-line"
+            v-for="(r, i) in results"
+            :key="i"
+          >
+            <span class="output-line-num">{{ i + 1 }}</span>
+            <span v-if="r.ok" class="output-line-value">{{ r.value }}</span>
+            <span v-else class="output-line-error">{{ r.error }}</span>
+          </div>
+        </template>
+        <div v-else class="output-empty">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span>results appear here</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-				</div> <!-- .row -->
-			</div> <!-- .hero-content -->
-		</div> <!-- .container -->
+  <!-- STATS + ACTIONS -->
+  <div class="stats-bar">
+    <div class="stat" v-if="results.length > 0">
+      <span class="stat-dot green"></span>
+      <span class="stat-val">{{ validCount }}</span>
+      <span>valid</span>
+    </div>
+    <div class="stat" v-if="errorCount > 0">
+      <span class="stat-dot red"></span>
+      <span class="stat-val">{{ errorCount }}</span>
+      <span>invalid</span>
+    </div>
+    <div class="stat" v-if="results.length > 0">
+      <span class="stat-dot"></span>
+      <span class="stat-val">{{ results.length }}</span>
+      <span>total</span>
+    </div>
+    <div class="ml-auto"></div>
+  </div>
 
-		<div id="particles-js" class="particles-js"></div>
+  <div class="actions">
+    <button class="btn btn-primary" @click="convert">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+        <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+      </svg>
+      Convert
+    </button>
+    <button class="btn btn-secondary" @click="copyOutput" :disabled="validCount === 0">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+      </svg>
+      Copy Results
+    </button>
+    <button class="btn btn-ghost" @click="clearAll">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+      Clear
+    </button>
+    <button class="btn btn-ghost ml-auto" @click="loadExample">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+      </svg>
+      Load Example
+    </button>
+  </div>
 
-	</section> <!-- .hero-area -->
+  <!-- COPY TOAST -->
+  <div class="copy-flash" :class="{ show: showCopied }">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    Copied {{ validCount }} coordinate{{ validCount !== 1 ? 's' : '' }} to clipboard
+  </div>
 
-	
+</div>
 
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/jquery.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/popper.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/bootstrap.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/imagesloaded.pkgd.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/isotope.pkgd.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/swiper-bundle.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/leaflet.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/jquery.waypoints.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/jquery.counterup.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/aos.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/jquery.preloadinator.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/vanilla-tilt.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/particles.min.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/typer.js"></script>
-<script src="https://ethemestudio.com/demo/fungi/3_programmer/js/script.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref, computed } = Vue;
+
+createApp({
+  setup() {
+    const inputText = ref('');
+    const results = ref([]);
+    const showCopied = ref(false);
+    let copyTimer = null;
+
+    // ─── DMS Parser ──────────────────────────────────────────────────────────
+
+    /**
+     * Parse a single DMS coordinate string like: 40°35'59.99"N
+     * Returns { decimal, direction } or throws.
+     */
+    function parseSingleDMS(token) {
+      // Normalize: trim, collapse spaces
+      let s = token.trim();
+
+      // Direction may be at start or end; extract it
+      // Supported: N, S, E, W  (case-insensitive)
+      // Cyrillic: С (North), Ю (South), В (East), З (West)
+      const directionMap = {
+        'N': 1, 'S': -1, 'E': 1, 'W': -1,
+        'С': 1,   // Cyrillic С = North
+        'Ю': -1,  // Cyrillic Ю = South
+        'В': 1,   // Cyrillic В = East
+        'З': -1,  // Cyrillic З = West
+        'н': 1, 'с': 1, 'ю': -1, 'в': 1, 'з': -1, // lowercase
+        'n': 1, 's': -1, 'e': 1, 'w': -1            // lowercase latin
+      };
+
+      // Try to extract direction letter from start or end
+      let sign = null;
+      let dirChar = '';
+
+      // Regex: optional leading direction, then degrees, then optional minutes/seconds, then optional trailing direction
+      // Degree symbol variants: ° \u00b0 (also handle plain number followed by space/d)
+      // Minute symbol variants: ' \u2019 \u02bc \u2032
+      // Second symbol variants: " \u201d \u2033 ''
+
+      const pattern = /^([NSEWСЮВЗnsewсювз])?\s*(\d{1,3})\s*[°º˚⁰\u00b0]?\s*(\d{1,2})?\s*['\u2019\u02bc\u2032]?\s*(\d+(?:[.,]\d+)?)?\s*["\u201d\u2033\u02ba]?\s*([NSEWСЮВЗnsewсювз])?$/u;
+
+      const m = s.match(pattern);
+      if (!m) throw new Error(`Cannot parse: "${token}"`);
+
+      const dirFront = m[1];
+      const deg = parseFloat(m[2]);
+      const min = m[3] !== undefined ? parseFloat(m[3]) : 0;
+      const sec = m[4] !== undefined ? parseFloat(m[4].replace(',', '.')) : 0;
+      const dirBack = m[5];
+
+      dirChar = dirFront || dirBack || '';
+
+      if (isNaN(deg)) throw new Error(`Invalid degrees in: "${token}"`);
+      if (min < 0 || min >= 60) throw new Error(`Invalid minutes in: "${token}"`);
+      if (sec < 0 || sec >= 60) throw new Error(`Invalid seconds in: "${token}"`);
+
+      sign = directionMap[dirChar];
+      if (sign === undefined) throw new Error(`Unknown direction "${dirChar}" in: "${token}"`);
+
+      const decimal = (deg + min / 60 + sec / 3600) * sign;
+      return { decimal, direction: dirChar.toUpperCase() };
+    }
+
+    /**
+     * Split a line into two DMS tokens (latitude + longitude).
+     * Handles various separators: space, comma+space, tab, etc.
+     */
+    function splitLine(line) {
+      const s = line.trim();
+
+      // Try splitting on comma (with optional surrounding spaces)
+      const commaIdx = s.indexOf(',');
+      if (commaIdx !== -1) {
+        return [s.slice(0, commaIdx).trim(), s.slice(commaIdx + 1).trim()];
+      }
+
+      // Split on direction-boundary: find second occurrence of a direction letter
+      // Pattern: anything ending with a direction, then space(s), then next token
+      const splitPattern = /^(.+?[NSEWСЮВЗnsewсювз])\s+(.+)$/u;
+      const m = s.match(splitPattern);
+      if (m) return [m[1].trim(), m[2].trim()];
+
+      // Fallback: split on middle space
+      const spaceIdx = s.search(/\s+/);
+      if (spaceIdx !== -1) {
+        return [s.slice(0, spaceIdx).trim(), s.slice(spaceIdx).trim()];
+      }
+
+      throw new Error(`Cannot split line into two coordinates: "${line}"`);
+    }
+
+    function convertLine(line) {
+      if (!line.trim()) return null; // skip empty lines
+
+      try {
+        const [latToken, lonToken] = splitLine(line);
+        const lat = parseSingleDMS(latToken);
+        const lon = parseSingleDMS(lonToken);
+
+        const latStr = lat.decimal.toFixed(6);
+        const lonStr = lon.decimal.toFixed(6);
+
+        return { ok: true, value: `${latStr}, ${lonStr}` };
+      } catch (e) {
+        return { ok: false, error: e.message || 'Invalid format' };
+      }
+    }
+
+    // ─── Computed ─────────────────────────────────────────────────────────────
+
+    const lines = computed(() => {
+      return inputText.value.split('\n').filter(l => l.trim() !== '');
+    });
+
+    const validCount = computed(() => results.value.filter(r => r.ok).length);
+    const errorCount = computed(() => results.value.filter(r => !r.ok).length);
+
+    // ─── Actions ──────────────────────────────────────────────────────────────
+
+    function convert() {
+      const raw = inputText.value.split('\n');
+      const out = [];
+      for (const line of raw) {
+        if (!line.trim()) continue;
+        const r = convertLine(line);
+        if (r) out.push(r);
+      }
+      results.value = out;
+    }
+
+    function liveConvert() {
+      convert();
+    }
+
+    function clearAll() {
+      inputText.value = '';
+      results.value = [];
+    }
+
+    function copyOutput() {
+      const text = results.value
+        .filter(r => r.ok)
+        .map(r => r.value)
+        .join('\n');
+
+      if (!text) return;
+
+      navigator.clipboard.writeText(text).then(() => {
+        showCopied.value = true;
+        if (copyTimer) clearTimeout(copyTimer);
+        copyTimer = setTimeout(() => { showCopied.value = false; }, 2400);
+      }).catch(() => {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showCopied.value = true;
+        if (copyTimer) clearTimeout(copyTimer);
+        copyTimer = setTimeout(() => { showCopied.value = false; }, 2400);
+      });
+    }
+
+    function loadExample() {
+      inputText.value = `40°35'59.99"N 71°47'4.01"E\n40°36'0.01"N 71°47'7.52"W\n55°45'7"С 37°37'4"В\n34°3'8.42"S 18°14'44.72"E\n51°30'26"N 0°7'39"W`;
+      convert();
+    }
+
+    return {
+      inputText,
+      results,
+      lines,
+      validCount,
+      errorCount,
+      showCopied,
+      convert,
+      liveConvert,
+      clearAll,
+      copyOutput,
+      loadExample,
+    };
+  }
+}).mount('#app');
+</script>
 </body>
-
-<!-- Mirrored from ethemestudio.com/demo/fungi/3_programmer/index_dark.html by HTTrack Website Copier/3.x [XR&CO'2014], Wed, 19 Feb 2025 13:32:57 GMT -->
 </html>
